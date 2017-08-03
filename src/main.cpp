@@ -1,30 +1,45 @@
 #include <fstream>
 #include <math.h>
 #include <uWS/uWS.h>
-#include <chrono>
+//#include <chrono>
 #include <iostream>
-#include <thread>
+//#include <thread>
 #include <vector>
-#include "Eigen-3.3/Eigen/Core"
-#include "Eigen-3.3/Eigen/QR"
+//#include "Eigen-3.3/Eigen/Core"
+//#include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
-#include "spline.h"
+//#include "spline.h"
+#include "path_planner.h"
 
+using namespace std::placeholders;
+// TODO: Remove:
 using namespace std;
 
 // for convenience
-using json = nlohmann::json;
+//using json = nlohmann::json;
 
 namespace {
 
-// For converting back and forth between radians and degrees.
-constexpr double pi() { return M_PI; }
-double deg2rad(double x) { return x * pi() / 180; }
-double rad2deg(double x) { return x * 180 / pi(); }
+// Local Helper-Functions
+// -----------------------------------------------------------------------------
+
+// Checks if the SocketIO event has JSON data.
+// @param[in] s  Raw event string
+// @return       If there is data the JSON object in string format will be
+//               returned, else an empty string will be returned.
+std::string GetJsonData(const std::string& s) {
+  auto found_null = s.find("null");
+  auto b1 = s.find_first_of("[");
+  auto b2 = s.find_last_of("]");
+  return found_null == std::string::npos
+    && b1 != std::string::npos
+    && b2 != std::string::npos ? s.substr(b1, b2 - b1 + 1) : std::string();
+}
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
+/*
 string hasData(string s) {
   auto found_null = s.find("null");
   auto b1 = s.find_first_of("[");
@@ -36,6 +51,29 @@ string hasData(string s) {
   }
   return "";
 }
+*/
+// Sends a control message to the simulator.
+// @param[in] ws           WebSocket object.
+// @param[in] steering     Steering value in [-1..1].
+// @param[in] throttle     Throttle value in [-1..1].
+// @param[in] predicted_x  X-coordinates of predicted waypoints.
+// @param[in] predicted_y  Y-coordinates of predicted waypoints.
+// @param[in] reference_x  X-coordinates of reference waypoints.
+// @param[in] reference_y  Y-coordinates of reference waypoints.
+void ControlSimulator(uWS::WebSocket<uWS::SERVER>& ws,
+                      const std::vector<double>& next_x,
+                      const std::vector<double>& next_y) {
+  nlohmann::json json_msg;
+  json_msg["next_x"] = next_x;
+  json_msg["next_y"] = next_y;
+  auto msg = "42[\"control\"," + json_msg.dump() + "]";
+  ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+}
+
+// For converting back and forth between radians and degrees.
+constexpr double pi() { return M_PI; }
+double deg2rad(double x) { return x * pi() / 180; }
+double rad2deg(double x) { return x * 180 / pi(); }
 
 double distance(double x1, double y1, double x2, double y2)
 {
@@ -143,7 +181,7 @@ struct Cartesian {
   double x;
   double y;
 };
-
+/*
 Cartesian GetCartesian(const Frenet& frenet,
                        const std::vector<double>& maps_s,
                        const std::vector<double>& maps_x,
@@ -166,16 +204,16 @@ Cartesian GetCartesian(const Frenet& frenet,
   auto kd = std::sqrt(frenet.d * frenet.d - norm_x * norm_x - norm_y * norm_y);
 
   Cartesian cartesian({x0 + kd * norm_x, y0 + kd * norm_y});
-/*
+
   std::cout << "GetCartesian: x " << cartesian.x << ", y " << cartesian.y
             << ", norm (" << norm_x << ", " << norm_y << ")"
             << ", kd " << kd
             << ", x0 " << x0 << ", y0 " << y0
             << std::endl;
-*/
+
   return cartesian;
 }
-
+*/
 // Transform from Frenet s,d coordinates to Cartesian x,y
 vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> maps_x, vector<double> maps_y)
 {
@@ -225,11 +263,11 @@ int main() {
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
 
+  // TODO: Move to a function.
   ifstream in_map_(map_file_.c_str(), ifstream::in);
-
-  string line;
+  std::string line;
   while (getline(in_map_, line)) {
-    istringstream iss(line);
+    std::istringstream iss(line);
     double x;
     double y;
     float s;
@@ -247,32 +285,36 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
-                     uWS::OpCode opCode) {
+  PathPlanner path_planner(map_waypoints_x,
+                           map_waypoints_y,
+                           map_waypoints_dx,
+                           map_waypoints_dy,
+                           map_waypoints_s,
+                           max_s);
+
+  h.onMessage([&path_planner](uWS::WebSocket<uWS::SERVER> ws,
+                              char* data,
+                              std::size_t length,
+                              uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
-    // The 4 signifies a websocket message
-    // The 2 signifies a websocket event
-    //auto sdata = string(data).substr(0, length);
-    //cout << sdata << endl;
-    if (length && length > 2 && data[0] == '4' && data[1] == '2') {
-
-      auto s = hasData(data);
-
-      if (s != "") {
-        auto j = json::parse(s);
-
-        string event = j[0].get<string>();
-
+    // The 4 indicates a websocket message
+    // The 2 indicates a websocket event
+    auto sdata = std::string(data).substr(0, length);
+    if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
+      std::string s = GetJsonData(sdata);
+      if (!s.empty()) {
+        auto j = nlohmann::json::parse(s);
+        auto event = j[0].get<std::string>();
         if (event == "telemetry") {
           // j[1] is the data JSON object
 
           // Main car's localization Data
-            double car_x = j[1]["x"];
-            double car_y = j[1]["y"];
-            double car_s = j[1]["s"];
-            double car_d = j[1]["d"];
-            double car_yaw = j[1]["yaw"];
-            double car_speed = j[1]["speed"];
+            double x = j[1]["x"];
+            double y = j[1]["y"];
+            double s = j[1]["s"];
+            double d = j[1]["d"];
+            double yaw = j[1]["yaw"];
+            double speed = j[1]["speed"];
 
             // Previous path data given to the Planner
             auto previous_path_x = j[1]["previous_path_x"];
@@ -282,14 +324,19 @@ int main() {
             double end_path_d = j[1]["end_path_d"];
 
             // Sensor Fusion Data, a list of all other cars on the same side of the road.
-            auto sensor_fusion = j[1]["sensor_fusion"];
-/*
-            std::cout << "Tracking vehicle Ids:";
-            for (const auto& v : sensor_fusion) {
-              std::cout << " " << v.at(0);
+//            auto sensor_fusion = j[1]["sensor_fusion"];
+            std::vector<PathPlanner::DetectedVehicle> sensor_fusion;
+            for (const auto& v : j[1]["sensor_fusion"]) {
+              assert(v.size() == 7);
+              sensor_fusion.push_back({v[0], v[1], v[2], v[3], v[4], v[5], v[6]});
             }
-            std::cout << std::endl;
-*/
+
+            path_planner.Update(x, y, s, d, yaw, speed,
+                                previous_path_x, previous_path_y,
+                                end_path_s, end_path_d,
+                                sensor_fusion,
+                                std::bind(ControlSimulator, ws, _1, _2));
+/*
             json msgJson;
 
             vector<double> next_x_vals;
@@ -309,7 +356,8 @@ int main() {
               next_y_vals.push_back(cartesian.y);
             }
 //            std::cout << std::endl;
-            std::cout << "Prev size " << previous_path_x.size() << ", next size " << next_x_vals.size() << std::endl;
+//            std::cout << "Prev size " << previous_path_x.size() << ", next size " << next_x_vals.size() << std::endl;
+*/
 /*
             double dist_inc = 0.5;
             std::cout << "xysd[0] " << car_x << "," << car_y << "," << car_s << "," << car_d << ".";
@@ -359,6 +407,7 @@ int main() {
                 pos_y += (dist_inc)*sin(angle+(i+1)*(pi()/100));
             }
 */
+/*
             // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
             msgJson["next_x"] = next_x_vals;
             msgJson["next_y"] = next_y_vals;
@@ -367,7 +416,7 @@ int main() {
 
             //this_thread::sleep_for(chrono::milliseconds(1000));
             ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-
+*/
         }
       } else {
         // Manual driving

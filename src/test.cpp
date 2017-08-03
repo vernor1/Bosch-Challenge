@@ -1,4 +1,3 @@
-//#include "matplotlibcpp.h"
 #include <sstream>
 #include "Python.h"
 #include "trajectory_generator.h"
@@ -6,13 +5,23 @@
 namespace {
 
 enum {TARGET_VEHICLE_ID = 0};
-const auto TARGET_TIME = 10.;
+
+/*
+const auto TARGET_TIME = 15.;
 const Vehicle TARGET_VEHICLE = {{0, 10, 0}, {2, 0, 0}};
-const VehicleMap VEHICLES = {{TARGET_VEHICLE_ID, TARGET_VEHICLE}};
-const Vehicle::State DELTA_S = {-5, 0, 0};
+const Vehicle::State DELTA_S = {-40, 0, 0};
 const Vehicle::State DELTA_D = {0, 0, 0};
 const Vehicle::State BEGIN_S = {10, 10, 0};
 const Vehicle::State BEGIN_D = {6, 0, 0};
+*/
+const auto TARGET_TIME = 2.;
+const Vehicle TARGET_VEHICLE = {{0, 15, 0}, {2, 0, 0}};
+const Vehicle::State BEGIN_S = {0, 15, 0};
+const Vehicle::State TARGET_S = {50, 15, 0};
+const Vehicle::State BEGIN_D = {6, 0, 0};
+const Vehicle::State TARGET_D = {10, 0, 0};
+
+const VehicleMap VEHICLES = {{TARGET_VEHICLE_ID, TARGET_VEHICLE}};
 
 // Takes the coefficients of a polynomial and creates a function of time from
 // them.
@@ -84,44 +93,18 @@ void ShowTrajectory(std::vector<double> s_coeffs,
   Py_Exit(0);
 }
 
-/*
-def show_trajectory(s_coeffs, d_coeffs, T, vehicle=None):
-    s = to_equation(s_coeffs)
-    d = to_equation(d_coeffs)
-    X = []
-    Y = []
-    if vehicle:
-        X2 = []
-        Y2 = []
-    t = 0
-    while t <= T+0.01:
-        X.append(s(t))
-        Y.append(d(t))
-        if vehicle:
-            s_, _, _, d_, _, _ = vehicle.state_in(t)
-            X2.append(s_)
-            Y2.append(d_)
-        t += 0.25
-    plt.figure(figsize=(12, 8))
-    plt.scatter(X,Y,color="blue")
-    for i in range(len(X)):
-        plt.annotate(int(i*0.25), (X[i], Y[i]), xytext=(X[i], Y[i]+0.1), fontsize=6)
-    if vehicle:
-        plt.scatter(X2, Y2,color="red")
-        for i in range(len(X2)):
-            plt.annotate(int(i*0.25), (X2[i], Y2[i]), xytext=(X2[i]-0.5, Y2[i]+0.1), fontsize=6)
-    plt.show()
-*/
-
 } // namespace
 
 int main() {
   TrajectoryGenerator tg;
-  auto trajectory = tg.Generate(BEGIN_S,
-                                BEGIN_D,
-                                TARGET_VEHICLE_ID,
-                                DELTA_S,
-                                DELTA_D,
+/*
+  auto trajectory = tg.Generate(BEGIN_S, BEGIN_D,
+                                TARGET_VEHICLE_ID, DELTA_S, DELTA_D,
+                                TARGET_TIME,
+                                VEHICLES);
+*/
+  auto trajectory = tg.Generate(BEGIN_S, BEGIN_D,
+                                TARGET_S, TARGET_D,
                                 TARGET_TIME,
                                 VEHICLES);
   ShowTrajectory(trajectory.s_coeffs,

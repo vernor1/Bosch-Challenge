@@ -10,6 +10,13 @@ public:
 
   Vehicle::Trajectory Generate(const Vehicle::State& begin_s,
                                const Vehicle::State& begin_d,
+                               const Vehicle::State& target_s,
+                               const Vehicle::State& target_d,
+                               double target_time,
+                               const VehicleMap& vehicles);
+
+  Vehicle::Trajectory Generate(const Vehicle::State& begin_s,
+                               const Vehicle::State& begin_d,
                                std::size_t target_vehicle_id,
                                const Vehicle::State& delta_s,
                                const Vehicle::State& delta_d,

@@ -45,38 +45,7 @@ double EvaluatePolynomial(const std::vector<double>& coeffs, double x) {
   }
   return result;
 }
-/*
-// Takes the coefficients of a polynomial and creates a function of time from
-// them.
-std::function<double(double t)> GetFunction(std::vector<double> coeffs) {
-  // TODO: Replace with function evaluation.
-  auto f = [coeffs](double t) {
-    auto result = 0.;
-    for (std::size_t i = 0; i < coeffs.size(); ++i) {
-      result += coeffs.at(i) * std::pow(t, i);
-    }
-    return result;
-  };
-  return f;
-}
-*/
-/*
-// Calculates the derivative of a polynomial and returns the corresponding
-// coefficients.
-std::vector<double> GetDerivative(const std::vector<double>& poly_coeffs,
-                                  std::size_t deriv_order = 1) {
-  assert(poly_coeffs.size() >= deriv_order);
-  auto result = poly_coeffs;
-  for (std::size_t order = 0; order < deriv_order; ++order) {
-    std::vector<double> coeffs;
-    for (std::size_t i = 1; i < result.size(); ++i) {
-      coeffs.push_back(static_cast<double>(i) * result[i]);
-    }
-    result = coeffs;
-  }
-  return result;
-}
-*/
+
 // Calculates the derivative of a polynomial and returns the corresponding
 // coefficients.
 std::vector<double> GetDerivative(const std::vector<double>& coeffs) {
@@ -87,19 +56,7 @@ std::vector<double> GetDerivative(const std::vector<double>& coeffs) {
   }
   return deriv_coeffs;
 }
-/*
-std::vector<std::function<double(double t)>> GetFunctionAndDerivatives(
-  std::vector<double> coeffs,
-  std::size_t n) {
-  std::vector<std::function<double(double t)>> functions;
-  functions.push_back(GetFunction(coeffs));
-  for (std::size_t i = 0; i < n; ++i) {
-    coeffs = GetDerivative(coeffs);
-    functions.push_back(GetFunction(coeffs));
-  }
-  return functions;
-}
-*/
+
 double GetClosestDistance(const Vehicle::Trajectory& trajectory,
                           const Vehicle& vehicle) {
   auto closest_distance = std::numeric_limits<double>::max();
@@ -139,30 +96,18 @@ double GetClosestDistanceToAnyVehicle(
 // Cost Functions
 // -----------------------------------------------------------------------------
 double trajectory_cost::GetTimeDiffCost(const Vehicle::Trajectory& trajectory,
-                                        std::size_t /*target_vehicle_id*/,
-                                        const Vehicle::State& /*delta_s*/,
-                                        const Vehicle::State& /*delta_d*/,
+                                        const Vehicle::State& /*target_s*/,
+                                        const Vehicle::State& /*target_d*/,
                                         double target_time,
                                         const VehicleMap& /*vehicles*/) {
   return GetLogistic(std::fabs(trajectory.time - target_time) / target_time);
 }
 
 double trajectory_cost::GetSdiffCost(const Vehicle::Trajectory& trajectory,
-                                     std::size_t target_vehicle_id,
-                                     const Vehicle::State& delta_s,
-                                     const Vehicle::State& delta_d,
+                                     const Vehicle::State& target_s,
+                                     const Vehicle::State& /*target_d*/,
                                      double /*target_time*/,
                                      const VehicleMap& vehicles) {
-  Vehicle::State target_vehicle_s;
-  Vehicle::State target_vehicle_d;
-  vehicles.at(target_vehicle_id).GetState(trajectory.time,
-                                          target_vehicle_s,
-                                          target_vehicle_d);
-  Vehicle::State target_s;
-  std::transform(target_vehicle_s.begin(), target_vehicle_s.end(),
-                 delta_s.begin(),
-                 std::back_inserter(target_s), std::plus<double>());
-  assert(target_s.size() == Vehicle::STATE_ORDER);
   std::vector<std::vector<double>> polyAndDerivatives = {{trajectory.s_coeffs}};
   auto s_dot = GetDerivative(trajectory.s_coeffs);
   polyAndDerivatives.push_back(s_dot);
@@ -179,21 +124,10 @@ double trajectory_cost::GetSdiffCost(const Vehicle::Trajectory& trajectory,
 }
 
 double trajectory_cost::GetDdiffCost(const Vehicle::Trajectory& trajectory,
-                                     std::size_t target_vehicle_id,
-                                     const Vehicle::State& delta_s,
-                                     const Vehicle::State& delta_d,
+                                     const Vehicle::State& /*target_s*/,
+                                     const Vehicle::State& target_d,
                                      double /*target_time*/,
                                      const VehicleMap& vehicles) {
-  Vehicle::State target_vehicle_s;
-  Vehicle::State target_vehicle_d;
-  vehicles.at(target_vehicle_id).GetState(trajectory.time,
-                                          target_vehicle_s,
-                                          target_vehicle_d);
-  Vehicle::State target_d;
-  std::transform(target_vehicle_d.begin(), target_vehicle_d.end(),
-                 delta_d.begin(),
-                 std::back_inserter(target_d), std::plus<double>());
-  assert(target_d.size() == Vehicle::STATE_ORDER);
   std::vector<std::vector<double>> polyAndDerivatives = {{trajectory.d_coeffs}};
   auto d_dot = GetDerivative(trajectory.d_coeffs);
   polyAndDerivatives.push_back(d_dot);
@@ -210,9 +144,8 @@ double trajectory_cost::GetDdiffCost(const Vehicle::Trajectory& trajectory,
 }
 
 double trajectory_cost::GetCollisionCost(const Vehicle::Trajectory& trajectory,
-                                         std::size_t /*target_vehicle_id*/,
-                                         const Vehicle::State& /*delta_s*/,
-                                         const Vehicle::State& /*delta_d*/,
+                                         const Vehicle::State& /*target_s*/,
+                                         const Vehicle::State& /*target_d*/,
                                          double /*target_time*/,
                                          const VehicleMap& vehicles) {
   auto closestDistance = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
@@ -220,9 +153,8 @@ double trajectory_cost::GetCollisionCost(const Vehicle::Trajectory& trajectory,
 }
 
 double trajectory_cost::GetBufferCost(const Vehicle::Trajectory& trajectory,
-                                      std::size_t /*target_vehicle_id*/,
-                                      const Vehicle::State& /*delta_s*/,
-                                      const Vehicle::State& /*delta_d*/,
+                                      const Vehicle::State& /*target_s*/,
+                                      const Vehicle::State& /*target_d*/,
                                       double /*target_time*/,
                                       const VehicleMap& vehicles) {
   auto closestDistance = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
@@ -231,9 +163,8 @@ double trajectory_cost::GetBufferCost(const Vehicle::Trajectory& trajectory,
 
 double trajectory_cost::GetOffRoadCost(
   const Vehicle::Trajectory& /*trajectory*/,
-  std::size_t /*target_vehicle_id*/,
-  const Vehicle::State& /*delta_s*/,
-  const Vehicle::State& /*delta_d*/,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
   double /*target_time*/,
   const VehicleMap& /*vehicles*/) {
   return 0;
@@ -241,41 +172,45 @@ double trajectory_cost::GetOffRoadCost(
 
 double trajectory_cost::GetSpeedingCost(
   const Vehicle::Trajectory& /*trajectory*/,
-  std::size_t /*target_vehicle_id*/,
-  const Vehicle::State& /*delta_s*/,
-  const Vehicle::State& /*delta_d*/,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
   double /*target_time*/,
   const VehicleMap& /*vehicles*/) {
   return 0;
 }
 
 double trajectory_cost::GetEfficiencyCost(const Vehicle::Trajectory& trajectory,
-                                          std::size_t target_vehicle_id,
-                                          const Vehicle::State& /*delta_s*/,
-                                          const Vehicle::State& /*delta_d*/,
+                                          const Vehicle::State& target_s,
+                                          const Vehicle::State& /*target_d*/,
                                           double /*target_time*/,
                                           const VehicleMap& vehicles) {
-//  auto fs = GetFunction(trajectory.s_coeffs);
   auto avg_v = EvaluatePolynomial(trajectory.s_coeffs, trajectory.time)
                / trajectory.time;
-  Vehicle::State target_vehicle_s;
-  Vehicle::State target_vehicle_d;
-  vehicles.at(target_vehicle_id).GetState(trajectory.time,
-                                          target_vehicle_s,
-                                          target_vehicle_d);
-  auto target_v = target_vehicle_s[0] / trajectory.time;
+  auto target_v = target_s[0] / trajectory.time;
   return GetLogistic(2. * (target_v - avg_v) / avg_v);
 }
 
-// FIXME: Rename GetMaxAccelCost<->GetTotalAccelCost
 double trajectory_cost::GetMaxAccelCost(const Vehicle::Trajectory& trajectory,
-                                        std::size_t /*target_vehicle_id*/,
-                                        const Vehicle::State& /*delta_s*/,
-                                        const Vehicle::State& /*delta_d*/,
+                                        const Vehicle::State& /*target_s*/,
+                                        const Vehicle::State& /*target_d*/,
                                         double target_time,
                                         const VehicleMap& /*vehicles*/) {
   auto s_double_dot = GetDerivative(GetDerivative(trajectory.s_coeffs));
-//  auto fa = GetFunction(s_double_dot);
+  std::set<double> accels;
+  auto dt = target_time / N_SAMPLES;
+  for (auto i = 0; i < N_SAMPLES; ++i) {
+    auto t = static_cast<double>(i) * dt;
+    accels.insert(std::fabs(EvaluatePolynomial(s_double_dot, t)));
+  }
+  return *accels.rbegin() > MAX_ACCEL ? 1 : 0;
+}
+
+double trajectory_cost::GetTotalAccelCost(const Vehicle::Trajectory& trajectory,
+                                          const Vehicle::State& /*target_s*/,
+                                          const Vehicle::State& /*target_d*/,
+                                          double target_time,
+                                          const VehicleMap& /*vehicles*/) {
+  auto s_double_dot = GetDerivative(GetDerivative(trajectory.s_coeffs));
   auto total_accel = 0.;
   auto dt = target_time / N_SAMPLES;
   for (auto i = 0; i < N_SAMPLES; ++i) {
@@ -286,31 +221,12 @@ double trajectory_cost::GetMaxAccelCost(const Vehicle::Trajectory& trajectory,
   return GetLogistic(accel_per_second / EXPECTED_ACCEL_IN_ONE_SEC);
 }
 
-double trajectory_cost::GetTotalAccelCost(const Vehicle::Trajectory& trajectory,
-                                          std::size_t /*target_vehicle_id*/,
-                                          const Vehicle::State& /*delta_s*/,
-                                          const Vehicle::State& /*delta_d*/,
-                                          double target_time,
-                                          const VehicleMap& /*vehicles*/) {
-  auto s_double_dot = GetDerivative(GetDerivative(trajectory.s_coeffs));
-//  auto fa = GetFunction(s_double_dot);
-  std::set<double> accels;
-  auto dt = target_time / N_SAMPLES;
-  for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * dt;
-    accels.insert(std::fabs(EvaluatePolynomial(s_double_dot, t)));
-  }
-  return *accels.rbegin() > MAX_ACCEL ? 1 : 0;
-}
-
 double trajectory_cost::GetMaxJerkCost(const Vehicle::Trajectory& trajectory,
-                                       std::size_t /*target_vehicle_id*/,
-                                       const Vehicle::State& /*delta_s*/,
-                                       const Vehicle::State& /*delta_d*/,
+                                       const Vehicle::State& /*target_s*/,
+                                       const Vehicle::State& /*target_d*/,
                                        double target_time,
                                        const VehicleMap& /*vehicles*/) {
   auto jerk = GetDerivative(GetDerivative(GetDerivative(trajectory.s_coeffs)));
-//  auto fjerk = GetFunction(jerk);
   std::set<double> jerks;
   auto dt = target_time / N_SAMPLES;
   for (auto i = 0; i < N_SAMPLES; ++i) {
@@ -321,13 +237,11 @@ double trajectory_cost::GetMaxJerkCost(const Vehicle::Trajectory& trajectory,
 }
 
 double trajectory_cost::GetTotalJerkCost(const Vehicle::Trajectory& trajectory,
-                                         std::size_t /*target_vehicle_id*/,
-                                         const Vehicle::State& /*delta_s*/,
-                                         const Vehicle::State& /*delta_d*/,
+                                         const Vehicle::State& /*target_s*/,
+                                         const Vehicle::State& /*target_d*/,
                                          double target_time,
                                          const VehicleMap& /*vehicles*/) {
   auto jerk = GetDerivative(GetDerivative(GetDerivative(trajectory.s_coeffs)));
-//  auto fjerk = GetFunction(jerk);
   auto total_jerk = 0.;
   auto dt = target_time / N_SAMPLES;
   for (auto i = 0; i < N_SAMPLES; ++i) {

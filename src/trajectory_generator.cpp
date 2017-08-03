@@ -9,6 +9,12 @@ namespace {
 // Local Types
 // -----------------------------------------------------------------------------
 
+struct Goal {
+  Vehicle::State s;
+  Vehicle::State d;
+  double time;
+};
+
 struct WeightedCostFunction {
   const char* name;
   trajectory_cost::Function function;
@@ -22,13 +28,13 @@ enum {N_SAMPLES = 10};
 
 const std::vector<WeightedCostFunction> WEIGHTED_COST_FUNCTIONS{
   {"GetTimeDiffCost", trajectory_cost::GetTimeDiffCost, 1},
-  {"GetSdiffCost", trajectory_cost::GetSdiffCost, 100},
+  {"GetSdiffCost", trajectory_cost::GetSdiffCost, 1},
   {"GetDdiffCost", trajectory_cost::GetDdiffCost, 100},
   {"GetEfficiencyCost", trajectory_cost::GetEfficiencyCost, 1},
   {"GetMaxJerkCost", trajectory_cost::GetMaxJerkCost, 10},
   {"GetTotalJerkCost", trajectory_cost::GetTotalJerkCost, 1},
   {"GetCollisionCost", trajectory_cost::GetCollisionCost, 100},
-  {"GetBufferCost", trajectory_cost::GetBufferCost, 10},
+  {"GetBufferCost", trajectory_cost::GetBufferCost, 1},
 //  {"GetOffRoadCost", trajectory_cost::GetOffRoadCost, 1},
 //  {"GetSpeedingCost", trajectory_cost::GetSpeedingCost, 1},
   {"GetMaxAccelCost", trajectory_cost::GetMaxAccelCost, 10},
@@ -72,19 +78,55 @@ std::vector<double> GetJmt(const Vehicle::State& begin,
   return {begin[0], begin[1], begin[2] / 2., x(0), x(1), x(2)};
 }
 
+std::vector<Vehicle::Trajectory> GetGoalTrajectories(
+  const Vehicle::State& begin_s,
+  const Vehicle::State& begin_d,
+  const std::vector<Goal>& goals) {
+  std::vector<Vehicle::Trajectory> trajectories;
+  for (const auto& goal : goals) {
+    Vehicle::Trajectory trajectory;
+    trajectory.time = goal.time;
+    trajectory.s_coeffs = GetJmt(begin_s, goal.s, goal.time);
+    trajectory.d_coeffs = GetJmt(begin_d, goal.d, goal.time);
+    trajectories.push_back(trajectory);
+  }
+  return trajectories;
+}
+
+void GetTargetState(const Vehicle& target_vehicle,
+                    double target_time,
+                    const Vehicle::State& delta_s,
+                    const Vehicle::State& delta_d,
+                    Vehicle::State& target_s,
+                    Vehicle::State& target_d) {
+  assert(delta_s.size() == Vehicle::STATE_ORDER);
+  assert(delta_d.size() == Vehicle::STATE_ORDER);
+  target_s.clear();
+  target_d.clear();
+  Vehicle::State target_vehicle_s;
+  Vehicle::State target_vehicle_d;
+  target_vehicle.GetState(target_time, target_vehicle_s, target_vehicle_d);
+  std::transform(target_vehicle_s.begin(), target_vehicle_s.end(),
+                 delta_s.begin(),
+                 std::back_inserter(target_s), std::plus<double>());
+  assert(target_s.size() == Vehicle::STATE_ORDER);
+  std::transform(target_vehicle_d.begin(), target_vehicle_d.end(),
+                 delta_d.begin(),
+                 std::back_inserter(target_d), std::plus<double>());
+  assert(target_d.size() == Vehicle::STATE_ORDER);
+}
+
 double CalculateCost(const Vehicle::Trajectory& trajectory,
-                     std::size_t target_vehicle_id,
-                     const Vehicle::State& delta_s,
-                     const Vehicle::State& delta_d,
+                     const Vehicle::State& target_s,
+                     const Vehicle::State& target_d,
                      double target_time,
                      const VehicleMap& vehicles,
                      bool isVerbose = false) {
   auto cost = 0.;
   for (const auto& wcf : WEIGHTED_COST_FUNCTIONS) {
     auto partial_cost = wcf.weight * wcf.function(trajectory,
-                                                  target_vehicle_id,
-                                                  delta_s,
-                                                  delta_d,
+                                                  target_s,
+                                                  target_d,
                                                   target_time,
                                                   vehicles);
     if (isVerbose) {
@@ -113,39 +155,18 @@ TrajectoryGenerator::TrajectoryGenerator()
 
 Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
                                                   const Vehicle::State& begin_d,
-                                                  std::size_t target_vehicle_id,
-                                                  const Vehicle::State& delta_s,
-                                                  const Vehicle::State& delta_d,
+                                                  const Vehicle::State& target_s,
+                                                  const Vehicle::State& target_d,
                                                   double target_time,
                                                   const VehicleMap& vehicles) {
-  auto target_vehicle = vehicles.at(target_vehicle_id);
-
-  // Generate alternative goals.
-  struct Goal {
-    Vehicle::State s;
-    Vehicle::State d;
-    double time;
-  };
-  std::vector<Goal> all_goals;
 
   // TODO: Replace with constant.
   auto timestep = 0.5;
 
+  // Generate alternative goals.
+  std::vector<Goal> all_goals;
   for (auto t = target_time - 4. * timestep; t <= target_time + 4. * timestep;
       t += timestep) {
-    Vehicle::State target_vehicle_s;
-    Vehicle::State target_vehicle_d;
-    target_vehicle.GetState(t, target_vehicle_s, target_vehicle_d);
-    Vehicle::State target_s;
-    std::transform(target_vehicle_s.begin(), target_vehicle_s.end(),
-                   delta_s.begin(),
-                   std::back_inserter(target_s), std::plus<double>());
-    assert(target_s.size() == Vehicle::STATE_ORDER);
-    Vehicle::State target_d;
-    std::transform(target_vehicle_d.begin(), target_vehicle_d.end(),
-                   delta_d.begin(),
-                   std::back_inserter(target_d), std::plus<double>());
-    assert(target_d.size() == Vehicle::STATE_ORDER);
     Goal base_goal{target_s, target_d, t};
     std::vector<Goal> goals;
     goals.push_back(base_goal);
@@ -160,22 +181,13 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   }
 
   // Find best trajectory.
-  std::vector<Vehicle::Trajectory> trajectories;
-  for (const auto& goal : all_goals) {
-    Vehicle::Trajectory trajectory;
-    trajectory.time = goal.time;
-    trajectory.s_coeffs = GetJmt(begin_s, goal.s, goal.time);
-    trajectory.d_coeffs = GetJmt(begin_d, goal.d, goal.time);
-    trajectories.push_back(trajectory);
-  }
-
+  auto trajectories = GetGoalTrajectories(begin_s, begin_d, all_goals);
   auto min_cost = std::numeric_limits<double>::max();
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
     auto cost = CalculateCost(trajectory,
-                              target_vehicle_id,
-                              delta_s,
-                              delta_d,
+                              target_s,
+                              target_d,
                               target_time,
                               vehicles);
     if (cost < min_cost) {
@@ -183,7 +195,70 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
       best_trajectory = trajectory;
     }
   }
-  CalculateCost(best_trajectory, target_vehicle_id, delta_s, delta_d, target_time, vehicles, true);
+
+  // Print out debug data.
+  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles, true);
+
+  return best_trajectory;
+}
+
+Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
+                                                  const Vehicle::State& begin_d,
+                                                  std::size_t target_vehicle_id,
+                                                  const Vehicle::State& delta_s,
+                                                  const Vehicle::State& delta_d,
+                                                  double target_time,
+                                                  const VehicleMap& vehicles) {
+  auto target_vehicle = vehicles.at(target_vehicle_id);
+
+  // Generate alternative goals.
+  std::vector<Goal> all_goals;
+  // TODO: Replace with constant.
+  auto timestep = 0.5;
+  for (auto t = target_time - 4. * timestep; t <= target_time + 4. * timestep;
+      t += timestep) {
+    Vehicle::State target_s;
+    Vehicle::State target_d;
+    GetTargetState(target_vehicle, t, delta_s, delta_d, target_s, target_d);
+    Goal base_goal{target_s, target_d, t};
+    std::vector<Goal> goals;
+    goals.push_back(base_goal);
+    for (auto i = 0; i < N_SAMPLES; ++i) {
+      Goal perturbed_goal;
+      perturbed_goal.time = t;
+      perturbed_goal.s = PerturbS(base_goal.s);
+      perturbed_goal.d = PerturbD(base_goal.d);
+      goals.push_back(perturbed_goal);
+    }
+    all_goals.insert(all_goals.end(), goals.begin(), goals.end());
+  }
+
+  // Find best trajectory.
+  auto trajectories = GetGoalTrajectories(begin_s, begin_d, all_goals);
+  auto min_cost = std::numeric_limits<double>::max();
+  Vehicle::Trajectory best_trajectory;
+  for (const auto& trajectory : trajectories) {
+    Vehicle::State target_s;
+    Vehicle::State target_d;
+    GetTargetState(target_vehicle, trajectory.time,
+                   delta_s, delta_d, target_s, target_d);
+    auto cost = CalculateCost(trajectory,
+                              target_s,
+                              target_d,
+                              target_time,
+                              vehicles);
+    if (cost < min_cost) {
+      min_cost = cost;
+      best_trajectory = trajectory;
+    }
+  }
+
+  // Print out debug data.
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(target_vehicle, best_trajectory.time,
+                 delta_s, delta_d, target_s, target_d);
+  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles, true);
 
   return best_trajectory;
 }

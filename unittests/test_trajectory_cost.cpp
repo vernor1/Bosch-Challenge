@@ -5,7 +5,8 @@ namespace {
 
 enum {TARGET_VEHICLE_ID = 0};
 const auto TARGET_TIME = 15.;
-const VehicleMap VEHICLES = {{TARGET_VEHICLE_ID, {{0, 10, 0}, {2, 0, 0}}}};
+const Vehicle TARGET_VEHICLE = {{0, 10, 0}, {2, 0, 0}};
+const VehicleMap VEHICLES = {{TARGET_VEHICLE_ID, TARGET_VEHICLE}};
 const Vehicle::State DELTA_S = {-40, 0, 0};
 const Vehicle::State COLLISION_DELTA_S = {-5, 0, 0};
 const Vehicle::State DELTA_D = {0, 0, 0};
@@ -24,6 +25,26 @@ const Vehicle::Trajectory COLLISION_TRAJECTORY = {
   17
 };
 
+// TODO: Consider making a shared helper.
+void GetTargetState(const Vehicle& target_vehicle,
+                    double target_time,
+                    const Vehicle::State& delta_s,
+                    const Vehicle::State& delta_d,
+                    Vehicle::State& target_s,
+                    Vehicle::State& target_d) {
+  target_s.clear();
+  target_d.clear();
+  Vehicle::State target_vehicle_s;
+  Vehicle::State target_vehicle_d;
+  target_vehicle.GetState(target_time, target_vehicle_s, target_vehicle_d);
+  std::transform(target_vehicle_s.begin(), target_vehicle_s.end(),
+                 delta_s.begin(),
+                 std::back_inserter(target_s), std::plus<double>());
+  std::transform(target_vehicle_d.begin(), target_vehicle_d.end(),
+                 delta_d.begin(),
+                 std::back_inserter(target_d), std::plus<double>());
+}
+
 } // namespace
 
 /*
@@ -40,173 +61,165 @@ const Vehicle::Trajectory COLLISION_TRAJECTORY = {
 */
 
 TEST(trajectory_cost, GetTimeDiffCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetTimeDiffCost(BEST_TRAJECTORY,
-                                                TARGET_VEHICLE_ID,
-                                                DELTA_S,
-                                                DELTA_D,
-                                                TARGET_TIME,
-                                                VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(0.0665680765023, cost, 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetTimeDiffCost(COLLISION_TRAJECTORY,
-                                                TARGET_VEHICLE_ID,
-                                                COLLISION_DELTA_S,
-                                                DELTA_D,
-                                                TARGET_TIME,
-                                                VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(0.0665680765023, cost, 1e-3);
 }
 
 TEST(trajectory_cost, GetSdiffCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetSdiffCost(BEST_TRAJECTORY,
-                                             TARGET_VEHICLE_ID,
-                                             DELTA_S,
-                                             DELTA_D,
-                                             TARGET_TIME,
-                                             VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(8.881784197e-14, cost * 100., 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetSdiffCost(COLLISION_TRAJECTORY,
-                                             TARGET_VEHICLE_ID,
-                                             COLLISION_DELTA_S,
-                                             DELTA_D,
-                                             TARGET_TIME,
-                                             VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(0., cost * 100., 1e-3);
 }
 
 TEST(trajectory_cost, GetDdiffCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetDdiffCost(BEST_TRAJECTORY,
-                                             TARGET_VEHICLE_ID,
-                                             DELTA_S,
-                                             DELTA_D,
-                                             TARGET_TIME,
-                                             VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(6.66133814775e-14, cost * 100., 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetDdiffCost(COLLISION_TRAJECTORY,
-                                             TARGET_VEHICLE_ID,
-                                             COLLISION_DELTA_S,
-                                             DELTA_D,
-                                             TARGET_TIME,
-                                             VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(6.66133814775e-14, cost * 100., 1e-3);
 }
 
 TEST(trajectory_cost, GetEfficiencyCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetEfficiencyCost(BEST_TRAJECTORY,
-                                                  TARGET_VEHICLE_ID,
-                                                  DELTA_S,
-                                                  DELTA_D,
-                                                  TARGET_TIME,
-                                                  VEHICLES);
-  EXPECT_NEAR(0.298336249978, cost, 1e-3);
+    target_s, target_d, TARGET_TIME, VEHICLES);
+//  EXPECT_NEAR(0.298336249978, cost, 1e-3);
+  EXPECT_NEAR(0., cost, 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetEfficiencyCost(COLLISION_TRAJECTORY,
-                                                  TARGET_VEHICLE_ID,
-                                                  COLLISION_DELTA_S,
-                                                  DELTA_D,
-                                                  TARGET_TIME,
-                                                  VEHICLES);
-  EXPECT_NEAR(0.0302937582174, cost, 1e-3);
+    target_s, target_d, TARGET_TIME, VEHICLES);
+//  EXPECT_NEAR(0.0302937582174, cost, 1e-3);
+  EXPECT_NEAR(0., cost, 1e-3);
 }
 
 TEST(trajectory_cost, GetMaxJerkCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetMaxJerkCost(BEST_TRAJECTORY,
-                                               TARGET_VEHICLE_ID,
-                                               DELTA_S,
-                                               DELTA_D,
-                                               TARGET_TIME,
-                                               VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(0.0, cost * 10., 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetMaxJerkCost(COLLISION_TRAJECTORY,
-                                               TARGET_VEHICLE_ID,
-                                               COLLISION_DELTA_S,
-                                               DELTA_D,
-                                               TARGET_TIME,
-                                               VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(0.0, cost * 10., 1e-3);
 }
 
 TEST(trajectory_cost, GetTotalJerkCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetTotalJerkCost(BEST_TRAJECTORY,
-                                                 TARGET_VEHICLE_ID,
-                                                 DELTA_S,
-                                                 DELTA_D,
-                                                 TARGET_TIME,
-                                                 VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(0.0532924045646, cost, 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetTotalJerkCost(COLLISION_TRAJECTORY,
-                                                 TARGET_VEHICLE_ID,
-                                                 COLLISION_DELTA_S,
-                                                 DELTA_D,
-                                                 TARGET_TIME,
-                                                 VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(0.0160015167532, cost, 1e-3);
 }
 
 TEST(trajectory_cost, GetCollisionCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetCollisionCost(BEST_TRAJECTORY,
-                                                 TARGET_VEHICLE_ID,
-                                                 DELTA_S,
-                                                 DELTA_D,
-                                                 TARGET_TIME,
-                                                 VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(0., cost * 100., 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetCollisionCost(COLLISION_TRAJECTORY,
-                                                 TARGET_VEHICLE_ID,
-                                                 COLLISION_DELTA_S,
-                                                 DELTA_D,
-                                                 TARGET_TIME,
-                                                 VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(100., cost * 100., 1e-3);
 }
 
 TEST(trajectory_cost, GetBufferCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetBufferCost(BEST_TRAJECTORY,
-                                              TARGET_VEHICLE_ID,
-                                              DELTA_S,
-                                              DELTA_D,
-                                              TARGET_TIME,
-                                              VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(4.38398629204, cost * 10., 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetBufferCost(COLLISION_TRAJECTORY,
-                                              TARGET_VEHICLE_ID,
-                                              COLLISION_DELTA_S,
-                                              DELTA_D,
-                                              TARGET_TIME,
-                                              VEHICLES);
+    target_s, target_d, TARGET_TIME, VEHICLES);
   EXPECT_NEAR(8.21378211245, cost * 10., 1e-3);
 }
 
 TEST(trajectory_cost, GetMaxAccelCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetMaxAccelCost(BEST_TRAJECTORY,
-                                                TARGET_VEHICLE_ID,
-                                                DELTA_S,
-                                                DELTA_D,
-                                                TARGET_TIME,
-                                                VEHICLES);
-  EXPECT_NEAR(3.21979347364, cost * 10., 1e-3);
+    target_s, target_d, TARGET_TIME, VEHICLES);
+  EXPECT_NEAR(0., cost * 10, 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetMaxAccelCost(COLLISION_TRAJECTORY,
-                                                TARGET_VEHICLE_ID,
-                                                COLLISION_DELTA_S,
-                                                DELTA_D,
-                                                TARGET_TIME,
-                                                VEHICLES);
-  EXPECT_NEAR(0.998225885096, cost * 10., 1e-3);
+    target_s, target_d, TARGET_TIME, VEHICLES);
+  EXPECT_NEAR(0., cost * 10, 1e-3);
 }
 
 TEST(trajectory_cost, GetTotalAccelCost) {
+  Vehicle::State target_s;
+  Vehicle::State target_d;
+  GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
+    DELTA_S, DELTA_D, target_s, target_d);
   auto cost =  trajectory_cost::GetTotalAccelCost(BEST_TRAJECTORY,
-                                                  TARGET_VEHICLE_ID,
-                                                  DELTA_S,
-                                                  DELTA_D,
-                                                  TARGET_TIME,
-                                                  VEHICLES);
-  EXPECT_NEAR(0., cost, 1e-3);
+    target_s, target_d, TARGET_TIME, VEHICLES);
+  EXPECT_NEAR(0.321979347364, cost, 1e-3);
+
+  GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
+    COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost =  trajectory_cost::GetTotalAccelCost(COLLISION_TRAJECTORY,
-                                                  TARGET_VEHICLE_ID,
-                                                  COLLISION_DELTA_S,
-                                                  DELTA_D,
-                                                  TARGET_TIME,
-                                                  VEHICLES);
-  EXPECT_NEAR(0., cost, 1e-3);
+    target_s, target_d, TARGET_TIME, VEHICLES);
+  EXPECT_NEAR(0.0998225885096, cost, 1e-3);
 }
 
 int main(int argc, char* argv[])
