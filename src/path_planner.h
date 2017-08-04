@@ -58,10 +58,10 @@ private:
   std::vector<double> waypoints_y_;
   std::vector<double> waypoints_s_;
   TrajectoryGenerator trajectory_generator_;
-  Vehicle::State LastStateS;
-  Vehicle::State LastStateD;
-//  std::deque<Vehicle::State> previous_states_s_;
-//  std::deque<Vehicle::State> previous_states_d_;
+//  Vehicle::State LastStateS;
+//  Vehicle::State LastStateD;
+  std::deque<Vehicle::State> previous_states_s_;
+  std::deque<Vehicle::State> previous_states_d_;
 
   Cartesian GetCartesian(const Frenet& frenet) const;
 };

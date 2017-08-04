@@ -29,16 +29,16 @@ enum {N_SAMPLES = 10};
 const std::vector<WeightedCostFunction> WEIGHTED_COST_FUNCTIONS{
   {"GetTimeDiffCost", trajectory_cost::GetTimeDiffCost, 1},
   {"GetSdiffCost", trajectory_cost::GetSdiffCost, 1},
-  {"GetDdiffCost", trajectory_cost::GetDdiffCost, 100},
-  {"GetEfficiencyCost", trajectory_cost::GetEfficiencyCost, 1},
-  {"GetMaxJerkCost", trajectory_cost::GetMaxJerkCost, 10},
-  {"GetTotalJerkCost", trajectory_cost::GetTotalJerkCost, 1},
+  {"GetDdiffCost", trajectory_cost::GetDdiffCost, 10},
+  {"GetEfficiencyCost", trajectory_cost::GetEfficiencyCost, 100},
+  {"GetMaxJerkCost", trajectory_cost::GetMaxJerkCost, 100},
+  {"GetTotalJerkCost", trajectory_cost::GetTotalJerkCost, 10},
   {"GetCollisionCost", trajectory_cost::GetCollisionCost, 100},
   {"GetBufferCost", trajectory_cost::GetBufferCost, 1},
 //  {"GetOffRoadCost", trajectory_cost::GetOffRoadCost, 1},
 //  {"GetSpeedingCost", trajectory_cost::GetSpeedingCost, 1},
-  {"GetMaxAccelCost", trajectory_cost::GetMaxAccelCost, 10},
-  {"GetTotalAccelCost", trajectory_cost::GetTotalAccelCost, 1}};
+  {"GetMaxAccelCost", trajectory_cost::GetMaxAccelCost, 100},
+  {"GetTotalAccelCost", trajectory_cost::GetTotalAccelCost, 10}};
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -121,15 +121,18 @@ double CalculateCost(const Vehicle::Trajectory& trajectory,
                      const Vehicle::State& target_d,
                      double target_time,
                      const VehicleMap& vehicles,
-                     bool isVerbose = false) {
+                     bool is_verbose = false) {
   auto cost = 0.;
+  if (is_verbose) {
+    std::cout << "Calculating cost:" << std::endl;
+  }
   for (const auto& wcf : WEIGHTED_COST_FUNCTIONS) {
     auto partial_cost = wcf.weight * wcf.function(trajectory,
                                                   target_s,
                                                   target_d,
                                                   target_time,
                                                   vehicles);
-    if (isVerbose) {
+    if (is_verbose) {
       std::cout << "cost for " << wcf.name << " is \t " << partial_cost
       << std::endl;
     }

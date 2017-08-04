@@ -10,7 +10,7 @@
 // Local Constants
 // -----------------------------------------------------------------------------
 
-enum {N_PATH_POINTS = 50};
+enum {N_PATH_POINTS = 55};
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -41,6 +41,16 @@ void PathPlanner::Update(double current_x,
                          const std::vector<DetectedVehicle>& sensor_fusion,
                          ControlFunction control_function) {
   assert(previous_path_x.size() == previous_path_y.size());
+  assert(previous_states_s_.size() == previous_states_d_.size());
+  assert(previous_path_x.size() <= previous_states_s_.size());
+  previous_states_s_.erase(
+    previous_states_s_.begin(),
+    previous_states_s_.begin() + previous_states_s_.size()
+      - previous_path_x.size());
+  previous_states_d_.erase(
+    previous_states_d_.begin(),
+    previous_states_d_.begin() + previous_states_d_.size()
+      - previous_path_x.size());
   std::vector<double> next_x(previous_path_x.begin(), previous_path_x.end());
   std::vector<double> next_y(previous_path_y.begin(), previous_path_y.end());
 
@@ -50,87 +60,78 @@ void PathPlanner::Update(double current_x,
 //    std::cout << " (" << previous_path_x[i] << "," << previous_path_y[i] << ")";
 //  }
 //  std::cout << std::endl;
-/*
-  auto target_v = 20.1168;
-  auto target_d = 6.;
-  auto dt = 0.02;
-  std::vector<double> next_x;
-  std::vector<double> next_y;
-  for (auto i = 1; i < 51; ++i) {
-    auto target_s = current_s + static_cast<double>(i) * target_v * dt;
-    auto cartesian = GetCartesian({target_s, target_d});
-    next_x.push_back(cartesian.x);
-    next_y.push_back(cartesian.y);
-  }
-  // Control the simulator.
-  control_function(next_x, next_y);
-*/
 
-  if (!LastStateS.empty() && previous_path_x.empty()) {
+  if (!previous_states_s_.empty() && previous_path_x.empty()) {
     std::cerr << "Previous path exhausted!" << std::endl;
   }
 
-  if (previous_path_x.size() < 25) {
-    Vehicle::Trajectory trajectory;
-    if (LastStateS.empty() || previous_path_x.empty()) {
-      Vehicle::State begin_s = {current_s, 0, 0};
-      Vehicle::State begin_d = {current_d, 0, 0};
-      Vehicle::State target_s = {current_s + 60, 20, 0};
-      Vehicle::State target_d = {2, 0, 0};
-      trajectory = trajectory_generator_.Generate(begin_s,
-                                                  begin_d,
-                                                  target_s,
-                                                  target_d,
-                                                  3, VehicleMap());
+  auto cur_s = current_s;
+  if (previous_states_s_.size() < N_PATH_POINTS) {
+    Vehicle::State begin_s;
+    Vehicle::State begin_d;
+    Vehicle::State target_s = {60, 20, 0};
+    Vehicle::State target_d = {2, 0, 0};
+    if (!previous_states_s_.empty()) {
+/*
+      std::cout << "Previous last state s (";
+      for (auto s : previous_states_s_.back()) {
+        std::cout << " " << s;
+      }
+      std::cout << ", d ";
+      for (auto d : previous_states_d_.back()) {
+        std::cout << " " << d;
+      }
+      std::cout << std::endl;
+*/
+      begin_s = previous_states_s_.back();
+      cur_s = begin_s[0];
+      begin_s[0] = 0;
+      begin_d = previous_states_d_.back();
+//      target_s = {60, 20, 0};
+//      target_d = {2, 0, 0};
     } else {
-      Vehicle::State target_s = {LastStateS[0] + 60, 20, 0};
-      Vehicle::State target_d = {2, 0, 0};
-      trajectory = trajectory_generator_.Generate(LastStateS,
-                                                  LastStateD,
-                                                  target_s,
-                                                  target_d,
-                                                  3, VehicleMap());
+      begin_s = {0, 0, 0};
+      begin_d = {current_d, 0, 0};
+//      target_s = {60, 20, 0};
+//      target_d = {2, 0, 0};
     }
+//    std::cout << "current_s " << current_s << ", cur_s " << cur_s << std::endl;
+    auto trajectory = trajectory_generator_.Generate(begin_s,
+                                                     begin_d,
+                                                     target_s,
+                                                     target_d,
+                                                     3, VehicleMap());
     auto dt = 0.02;
-//    std::cout << "Current Frenet coords (" << current_s << "," << current_d
-//              << "), Cartesian coords (" << current_x << "," << current_y
-//              << "), trajectory time " << trajectory.time << std::endl;
 //    std::cout << "Next Frenet coords";
-    auto t = 0.;
-    auto s = 0.;
-    auto d = 0.;
-    for (auto i = 1; i < 51; ++i) {
-      t = static_cast<double>(i) * dt;
-      s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t);
-      d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
+    auto n_missing_points = N_PATH_POINTS - previous_states_s_.size();
+    for (auto i = 1; i < n_missing_points + 1; ++i) {
+      auto t = static_cast<double>(i) * dt;
+      auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
+      auto s_double_dot_coeffs = helpers::GetDerivative(s_dot_coeffs);
+      auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
+      auto d_double_dot_coeffs = helpers::GetDerivative(d_dot_coeffs);
+      auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t) + cur_s;
+      auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, t);
+      auto s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, t);
+      auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
+      auto d_dot = helpers::EvaluatePolynomial(d_dot_coeffs, t);
+      auto d_double_dot = helpers::EvaluatePolynomial(d_double_dot_coeffs, t);
+      previous_states_s_.push_back({s, s_dot, s_double_dot});
+      previous_states_d_.push_back({d, d_dot, d_double_dot});
 //      std::cout << " (" << s << "," << d << ")";
       auto cartesian = GetCartesian({s, d});
       next_x.push_back(cartesian.x);
       next_y.push_back(cartesian.y);
     }
 //    std::cout << std::endl;
-
-    auto s_dot = helpers::GetDerivative(trajectory.s_coeffs);
-    auto s_double_dot = helpers::GetDerivative(s_dot);
-    auto d_dot = helpers::GetDerivative(trajectory.d_coeffs);
-    auto d_double_dot = helpers::GetDerivative(d_dot);
-    LastStateS.clear();
-    LastStateS.push_back(s);
-    LastStateS.push_back(helpers::EvaluatePolynomial(s_dot, t));
-    LastStateS.push_back(helpers::EvaluatePolynomial(s_double_dot, t));
-    LastStateD.clear();
-    LastStateD.push_back(d);
-    LastStateD.push_back(helpers::EvaluatePolynomial(d_dot, t));
-    LastStateD.push_back(helpers::EvaluatePolynomial(d_double_dot, t));
-//    std::cout << "Last t " << t
-//              << ", state_s (" << LastStateS[0] << "," << LastStateS[1] << ","
-//              << LastStateS[2]
-//              << "), state_d (" << LastStateD[0] << "," << LastStateD[1] << ","
-//              << LastStateD[2] << ")" << std::endl;
 /*
-    std::cout << "Next Cartesian coords";
-    for (std::size_t i = 0; i < next_x.size(); ++i) {
-      std::cout << " (" << next_x[i] << "," << next_y[i] << ")";
+    std::cout << "New last state s";
+    for (auto s : previous_states_s_.back()) {
+      std::cout << " " << s;
+    }
+    std::cout << ", d ";
+    for (auto d : previous_states_d_.back()) {
+      std::cout << " " << d;
     }
     std::cout << std::endl;
 */

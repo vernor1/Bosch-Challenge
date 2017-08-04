@@ -186,8 +186,15 @@ double trajectory_cost::GetEfficiencyCost(const Vehicle::Trajectory& trajectory,
                                           const VehicleMap& vehicles) {
   auto avg_v = EvaluatePolynomial(trajectory.s_coeffs, trajectory.time)
                / trajectory.time;
+/*
   auto target_v = target_s[0] / trajectory.time;
-  return GetLogistic(2. * (target_v - avg_v) / avg_v);
+  std::cout << "trajectory.time " << trajectory.time
+            << ", avg_v " << avg_v
+            << ", target_v " << target_v
+            << ", target_s_dot " << target_s[1]
+            << std::endl;
+*/
+  return GetLogistic(2. * (target_s[1] - avg_v) / avg_v);
 }
 
 double trajectory_cost::GetMaxAccelCost(const Vehicle::Trajectory& trajectory,
