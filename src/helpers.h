@@ -1,5 +1,5 @@
-#ifndef TRAJECTORYCOST_H
-#define TRAJECTORYCOST_H
+#ifndef HELPERS_H
+#define HELPERS_H
 
 #include <vector>
 
@@ -17,4 +17,4 @@ std::vector<double> GetDerivative(const std::vector<double>& coeffs);
 
 } // helpers
 
-#endif // TRAJECTORYCOST_H
+#endif // HELPERS_H

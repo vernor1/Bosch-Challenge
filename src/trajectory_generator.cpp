@@ -33,12 +33,12 @@ const std::vector<WeightedCostFunction> WEIGHTED_COST_FUNCTIONS{
   {"GetEfficiencyCost", trajectory_cost::GetEfficiencyCost, 100},
   {"GetMaxJerkCost", trajectory_cost::GetMaxJerkCost, 100},
   {"GetTotalJerkCost", trajectory_cost::GetTotalJerkCost, 10},
-  {"GetCollisionCost", trajectory_cost::GetCollisionCost, 100},
-  {"GetBufferCost", trajectory_cost::GetBufferCost, 1},
-//  {"GetOffRoadCost", trajectory_cost::GetOffRoadCost, 1},
-//  {"GetSpeedingCost", trajectory_cost::GetSpeedingCost, 1},
+  {"GetCollisionCost", trajectory_cost::GetCollisionCost, 1000},
+  {"GetBufferCost", trajectory_cost::GetBufferCost, 200},
   {"GetMaxAccelCost", trajectory_cost::GetMaxAccelCost, 100},
-  {"GetTotalAccelCost", trajectory_cost::GetTotalAccelCost, 10}};
+  {"GetTotalAccelCost", trajectory_cost::GetTotalAccelCost, 10},
+  {"GetOffRoadCost", trajectory_cost::GetOffRoadCost, 1000},
+  {"GetSpeedingCost", trajectory_cost::GetSpeedingCost, 1000}};
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -121,6 +121,8 @@ double CalculateCost(const Vehicle::Trajectory& trajectory,
                      const Vehicle::State& target_d,
                      double target_time,
                      const VehicleMap& vehicles,
+                     double d_limit,
+                     double s_dot_limit,
                      bool is_verbose = false) {
   auto cost = 0.;
   if (is_verbose) {
@@ -131,7 +133,9 @@ double CalculateCost(const Vehicle::Trajectory& trajectory,
                                                   target_s,
                                                   target_d,
                                                   target_time,
-                                                  vehicles);
+                                                  vehicles,
+                                                  d_limit,
+                                                  s_dot_limit);
     if (is_verbose) {
       std::cout << "cost for " << wcf.name << " is \t " << partial_cost
       << std::endl;
@@ -161,7 +165,9 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
                                                   const Vehicle::State& target_s,
                                                   const Vehicle::State& target_d,
                                                   double target_time,
-                                                  const VehicleMap& vehicles) {
+                                                  const VehicleMap& vehicles,
+                                                  double d_limit,
+                                                  double s_dot_limit) {
 
   // TODO: Replace with constant.
   auto timestep = 0.5;
@@ -188,11 +194,8 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   auto min_cost = std::numeric_limits<double>::max();
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
-    auto cost = CalculateCost(trajectory,
-                              target_s,
-                              target_d,
-                              target_time,
-                              vehicles);
+    auto cost = CalculateCost(trajectory, target_s, target_d, target_time,
+                              vehicles, d_limit, s_dot_limit);
     if (cost < min_cost) {
       min_cost = cost;
       best_trajectory = trajectory;
@@ -200,7 +203,8 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   }
 
   // Print out debug data.
-  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles, true);
+  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
+                d_limit, s_dot_limit, true);
 
   return best_trajectory;
 }
@@ -211,7 +215,9 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
                                                   const Vehicle::State& delta_s,
                                                   const Vehicle::State& delta_d,
                                                   double target_time,
-                                                  const VehicleMap& vehicles) {
+                                                  const VehicleMap& vehicles,
+                                                  double d_limit,
+                                                  double s_dot_limit) {
   auto target_vehicle = vehicles.at(target_vehicle_id);
 
   // Generate alternative goals.
@@ -245,11 +251,8 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
     Vehicle::State target_d;
     GetTargetState(target_vehicle, trajectory.time,
                    delta_s, delta_d, target_s, target_d);
-    auto cost = CalculateCost(trajectory,
-                              target_s,
-                              target_d,
-                              target_time,
-                              vehicles);
+    auto cost = CalculateCost(trajectory, target_s, target_d, target_time,
+                              vehicles, d_limit, s_dot_limit);
     if (cost < min_cost) {
       min_cost = cost;
       best_trajectory = trajectory;
@@ -261,7 +264,8 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   Vehicle::State target_d;
   GetTargetState(target_vehicle, best_trajectory.time,
                  delta_s, delta_d, target_s, target_d);
-  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles, true);
+  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
+                d_limit, s_dot_limit, true);
 
   return best_trajectory;
 }

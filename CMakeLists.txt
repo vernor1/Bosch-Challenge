@@ -7,12 +7,14 @@ add_definitions(-std=c++11 -O3)
 set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
-set(sources src/main.cpp
+set(sources src/coordinate_converter.cpp
+            src/main.cpp
+            src/helpers.cpp
             src/path_planner.cpp
-            src/trajectory_generator.cpp
+            src/planner_state.cpp
             src/trajectory_cost.cpp
-            src/vehicle.cpp
-            src/helpers.cpp)
+            src/trajectory_generator.cpp
+            src/vehicle.cpp)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
 
@@ -74,6 +76,7 @@ if (test)
   # ----------------------------------------------------------------------------
   add_library(trajectory_cost_lib src/trajectory_cost.cpp)
   add_library(vehicle_lib src/vehicle.cpp)
+  add_library(helpers_lib src/helpers.cpp)
 
   enable_testing()
 
@@ -85,7 +88,8 @@ if (test)
   target_link_libraries(test_trajectory_cost libgtest)
 
   # Extra linking for the project
-  target_link_libraries(test_trajectory_cost trajectory_cost_lib vehicle_lib)
+  target_link_libraries(test_trajectory_cost
+                        trajectory_cost_lib vehicle_lib helpers_lib)
 
   # Make tests running through 'make test'
   add_test(NAME test_trajectory_cost COMMAND test_trajectory_cost)

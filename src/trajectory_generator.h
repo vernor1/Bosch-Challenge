@@ -13,7 +13,9 @@ public:
                                const Vehicle::State& target_s,
                                const Vehicle::State& target_d,
                                double target_time,
-                               const VehicleMap& vehicles);
+                               const VehicleMap& vehicles,
+                               double d_limit,
+                               double s_dot_limit);
 
   Vehicle::Trajectory Generate(const Vehicle::State& begin_s,
                                const Vehicle::State& begin_d,
@@ -21,7 +23,9 @@ public:
                                const Vehicle::State& delta_s,
                                const Vehicle::State& delta_d,
                                double target_time,
-                               const VehicleMap& vehicles);
+                               const VehicleMap& vehicles,
+                               double d_limit,
+                               double s_dot_limit);
 
 private:
   std::random_device random_device_;
