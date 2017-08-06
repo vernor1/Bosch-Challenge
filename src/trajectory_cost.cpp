@@ -1,5 +1,6 @@
 #include "trajectory_cost.h"
 #include <cassert>
+#include <cmath>
 #include <iostream>
 #include <set>
 #include "helpers.h"
@@ -35,37 +36,36 @@ double GetLogistic(double x) {
   return 2. / (1. + std::exp(-x)) - 1.0;
 }
 
-double GetClosestDistance(const Vehicle::Trajectory& trajectory,
-                          const Vehicle& vehicle) {
-  auto closest_distance = std::numeric_limits<double>::max();
-  for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) / N_SAMPLES * trajectory.time;
-    auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t);
-    auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
-    Vehicle::State vehicle_s;
-    Vehicle::State vehicle_d;
-    vehicle.GetState(t, vehicle_s, vehicle_d);
-    auto diff_s = s - vehicle_s[0];
-    auto diff_d = d - vehicle_d[0];
-    auto distance = std::sqrt(diff_s * diff_s + diff_d * diff_d);
-    if (distance < closest_distance) {
-      closest_distance = distance;
-    }
-  }
-  return closest_distance;
-}
-
 // Calculates the closest distance to any vehicle during a trajectory.
 double GetClosestDistanceToAnyVehicle(
   const Vehicle::Trajectory& trajectory,
   const VehicleMap& vehicles) {
   auto closest_distance = std::numeric_limits<double>::max();
-  for (const auto& v : vehicles) {
-    auto distance = GetClosestDistance(trajectory, v.second);
-    if (distance < closest_distance) {
-      closest_distance = distance;
+//  auto start = std::chrono::steady_clock::now();
+
+  auto dt = trajectory.time / N_SAMPLES;
+  for (auto i = 0; i < N_SAMPLES; ++i) {
+    auto t = static_cast<double>(i) * dt;
+    auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t);
+    auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
+    for (const auto& v : vehicles) {
+      Vehicle::State vehicle_s;
+      Vehicle::State vehicle_d;
+      v.second.GetState(t, vehicle_s, vehicle_d);
+      auto diff_s = s - vehicle_s[0];
+      auto diff_d = d - vehicle_d[0];
+      auto distance = std::sqrt(diff_s * diff_s + diff_d * diff_d);
+      if (distance < closest_distance) {
+        closest_distance = distance;
+      }
     }
   }
+
+//  auto stop = std::chrono::steady_clock::now();
+//  auto diff = stop - start;
+//  std::cout << "GetClosestDistanceToAnyVehicle completed in "
+//            << std::chrono::duration<double, std::milli>(diff).count()
+//            << " ms" << std::endl;
   return closest_distance;
 }
 
@@ -157,9 +157,9 @@ double trajectory_cost::GetOffRoadCost(const Vehicle::Trajectory& trajectory,
                                        const VehicleMap& /*vehicles*/,
                                        double d_limit,
                                        double s_dot_limit) {
-  auto sample_duration = trajectory.time / N_SAMPLES;
+  auto dt = trajectory.time / N_SAMPLES;
   for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * sample_duration;
+    auto t = static_cast<double>(i) * dt;
     auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
     if (d < VEHICLE_RADIUS || d > d_limit - VEHICLE_RADIUS) {
       return 1;
@@ -176,9 +176,9 @@ double trajectory_cost::GetSpeedingCost(const Vehicle::Trajectory& trajectory,
                                         double /*d_limit*/,
                                         double s_dot_limit) {
   auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
-  auto sample_duration = trajectory.time / N_SAMPLES;
+  auto dt = trajectory.time / N_SAMPLES;
   for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * sample_duration;
+    auto t = static_cast<double>(i) * dt;
     auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, t);
     if (s_dot < 0 || s_dot > s_dot_limit) {
       return 1;

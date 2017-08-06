@@ -90,16 +90,15 @@ void PathPlanner::Update(double current_x,
     std::cerr << "Previous path exhausted!" << std::endl;
   }
 
-  // TODO: Rename cur_s or current_s.
-  auto cur_s = current_s;
   if (previous_states_s_.size() < N_PATH_POINTS) {
+    auto farthest_planned_s = current_s;
     Vehicle::State begin_s;
     Vehicle::State begin_d;
     Vehicle::State target_s = {60, 20, 0};
     Vehicle::State target_d = {2, 0, 0};
     if (!previous_states_s_.empty()) {
       begin_s = previous_states_s_.back();
-      cur_s = begin_s[0];
+      farthest_planned_s = begin_s[0];
       begin_s[0] = 0;
       begin_d = previous_states_d_.back();
     } else {
@@ -107,10 +106,16 @@ void PathPlanner::Update(double current_x,
       begin_d = {current_d, 0, 0};
     }
 
+//    auto start = std::chrono::steady_clock::now();
     auto trajectory = trajectory_generator_.Generate(begin_s, begin_d,
                                                      target_s, target_d,
                                                      3, other_vehicles,
                                                      12, 22.35);
+//    auto stop = std::chrono::steady_clock::now();
+//    auto diff = stop - start;
+//    std::cout << "Generate completed in " << std::chrono::duration<double, std::milli>(diff).count()
+//              << " ms" << std::endl;
+
     auto dt = 0.02;
     auto n_missing_points = N_PATH_POINTS - previous_states_s_.size();
     for (auto i = 1; i < n_missing_points + 1; ++i) {
@@ -119,7 +124,8 @@ void PathPlanner::Update(double current_x,
       auto s_double_dot_coeffs = helpers::GetDerivative(s_dot_coeffs);
       auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
       auto d_double_dot_coeffs = helpers::GetDerivative(d_dot_coeffs);
-      auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t) + cur_s;
+      auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t)
+             + farthest_planned_s;
       auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, t);
       auto s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, t);
       auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
@@ -138,36 +144,3 @@ void PathPlanner::Update(double current_x,
     control_function(next_x, next_y);
   }
 }
-
-// Private Methods
-// -----------------------------------------------------------------------------
-/*
-PathPlanner::Cartesian PathPlanner::GetCartesian(const Frenet& frenet) const {
-  tk::spline spline_x;
-  tk::spline spline_y;
-
-  // TODO: Fit a spline over neighbour waypoints rather than whole track.
-  spline_x.set_points(waypoints_s_, waypoints_x_);
-  spline_y.set_points(waypoints_s_, waypoints_y_);
-
-  auto x0 = spline_x(frenet.s);
-  auto y0 = spline_y(frenet.s);
-
-  auto norm_x = spline_y.deriv(1, frenet.s);
-  auto norm_y = -spline_x.deriv(1, frenet.s);
-
-  // FIXME: Handle the case of normal vector be shorter than the d-vector.
-  assert(frenet.d * frenet.d > norm_x * norm_x - norm_y * norm_y);
-  auto kd = std::sqrt(frenet.d * frenet.d - norm_x * norm_x - norm_y * norm_y);
-
-  Cartesian cartesian({x0 + kd * norm_x, y0 + kd * norm_y});
-
-  std::cout << "GetCartesian: x " << cartesian.x << ", y " << cartesian.y
-            << ", norm (" << norm_x << ", " << norm_y << ")"
-            << ", kd " << kd
-            << ", x0 " << x0 << ", y0 " << y0
-            << std::endl;
-
-  return cartesian;
-}
-*/

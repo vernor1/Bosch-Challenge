@@ -15,18 +15,7 @@ public:
     const std::vector<double>& next_y)> ControlFunction;
 
   typedef CoordinateConverter::DetectedVehicle DetectedVehicle;
-  // [id, x, y, vx, vy, s, d]
-/*
-  struct DetectedVehicle{
-    std::size_t id;
-    double x;
-    double y;
-    double vx;
-    double vy;
-    double s;
-    double d;
-  };
-*/
+
   PathPlanner(const std::vector<double>& waypoints_x,
               const std::vector<double>& waypoints_y,
               const std::vector<double>& waypoints_dx,
@@ -48,26 +37,11 @@ public:
               ControlFunction control_function);
 
 private:
-  // TODO: Consider removing structures Frenet and Cartesian.
-  struct Frenet {
-    double s;
-    double d;
-  };
-  struct Cartesian {
-    double x;
-    double y;
-  };
-
-//  std::vector<double> waypoints_x_;
-//  std::vector<double> waypoints_y_;
-//  std::vector<double> waypoints_s_;
   CoordinateConverter coordinate_converter_;
   TrajectoryGenerator trajectory_generator_;
   std::shared_ptr<PlannerState> planner_state_;
   std::deque<Vehicle::State> previous_states_s_;
   std::deque<Vehicle::State> previous_states_d_;
-
-//  Cartesian GetCartesian(const Frenet& frenet) const;
 };
 
 #endif // PATHPLANNER_H

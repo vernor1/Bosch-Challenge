@@ -171,7 +171,7 @@ vector<double> getFrenet(double x, double y, double theta, vector<double> maps_x
   return {frenet_s,frenet_d};
 
 }
-
+/*
 struct Frenet {
   double s;
   double d;
@@ -181,7 +181,7 @@ struct Cartesian {
   double x;
   double y;
 };
-/*
+
 Cartesian GetCartesian(const Frenet& frenet,
                        const std::vector<double>& maps_s,
                        const std::vector<double>& maps_x,
