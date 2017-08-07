@@ -40,15 +40,31 @@ double GetLogistic(double x) {
 double GetClosestDistanceToAnyVehicle(
   const Vehicle::Trajectory& trajectory,
   const VehicleMap& vehicles) {
+  auto vehicle_id = -1;
   auto closest_distance = std::numeric_limits<double>::max();
 //  auto start = std::chrono::steady_clock::now();
+
+  // Don't take vehicles following the car into consideration.
+  VehicleMap vehicles_of_interest;
+  auto d0 = helpers::EvaluatePolynomial(trajectory.d_coeffs, 0);
+  for (const auto& v : vehicles) {
+    Vehicle::State vehicle_s0;
+    Vehicle::State vehicle_d0;
+    v.second.GetState(0, vehicle_s0, vehicle_d0);
+    if (std::fabs(d0 - vehicle_d0[0]) > VEHICLE_RADIUS
+        || vehicle_s0[0] > -VEHICLE_RADIUS) {
+      vehicles_of_interest.insert(v);
+    } else {
+//      std::cout << "Not interested in vehicle Id " << v.first << std::endl;
+    }
+  }
 
   auto dt = trajectory.time / N_SAMPLES;
   for (auto i = 0; i < N_SAMPLES; ++i) {
     auto t = static_cast<double>(i) * dt;
     auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t);
     auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
-    for (const auto& v : vehicles) {
+    for (const auto& v : vehicles_of_interest) {
       Vehicle::State vehicle_s;
       Vehicle::State vehicle_d;
       v.second.GetState(t, vehicle_s, vehicle_d);
@@ -57,6 +73,7 @@ double GetClosestDistanceToAnyVehicle(
       auto distance = std::sqrt(diff_s * diff_s + diff_d * diff_d);
       if (distance < closest_distance) {
         closest_distance = distance;
+        vehicle_id = v.first;
       }
     }
   }
@@ -66,6 +83,10 @@ double GetClosestDistanceToAnyVehicle(
 //  std::cout << "GetClosestDistanceToAnyVehicle completed in "
 //            << std::chrono::duration<double, std::milli>(diff).count()
 //            << " ms" << std::endl;
+//  if (closest_distance < 2. * VEHICLE_RADIUS) {
+//    std::cout << "Colliding with vehicle Id " << vehicle_id << ", distance "
+//              << closest_distance << std::endl;
+//  }
   return closest_distance;
 }
 
@@ -134,9 +155,8 @@ double trajectory_cost::GetCollisionCost(const Vehicle::Trajectory& trajectory,
                                          const VehicleMap& vehicles,
                                          double /*d_limit*/,
                                          double /*s_dot_limit*/) {
-  auto closestDistance = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
-//  std::cout << "closestDistance " << closestDistance << std::endl;
-  return closestDistance < 2. * VEHICLE_RADIUS ? 1 : 0;
+  auto closest_distance = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
+  return closest_distance < 2. * VEHICLE_RADIUS ? 1 : 0;
 }
 
 double trajectory_cost::GetBufferCost(const Vehicle::Trajectory& trajectory,
@@ -146,8 +166,8 @@ double trajectory_cost::GetBufferCost(const Vehicle::Trajectory& trajectory,
                                       const VehicleMap& vehicles,
                                       double /*d_limit*/,
                                       double /*s_dot_limit*/) {
-  auto closestDistance = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
-  return GetLogistic(2. * VEHICLE_RADIUS / closestDistance);
+  auto closest_distance = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
+  return GetLogistic(2. * VEHICLE_RADIUS / closest_distance);
 }
 
 double trajectory_cost::GetOffRoadCost(const Vehicle::Trajectory& trajectory,

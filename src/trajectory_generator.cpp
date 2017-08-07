@@ -1,5 +1,6 @@
 #include "trajectory_generator.h"
 #include <iostream>
+#include <set>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "trajectory_cost.h"
@@ -27,12 +28,13 @@ struct WeightedCostFunction {
 enum {N_SAMPLES = 10};
 
 const std::vector<WeightedCostFunction> WEIGHTED_COST_FUNCTIONS{
-  {"GetTimeDiffCost", trajectory_cost::GetTimeDiffCost, 1},
+  {"GetTimeDiffCost", trajectory_cost::GetTimeDiffCost, 10},
   {"GetSdiffCost", trajectory_cost::GetSdiffCost, 1},
   {"GetDdiffCost", trajectory_cost::GetDdiffCost, 10},
   {"GetEfficiencyCost", trajectory_cost::GetEfficiencyCost, 100},
   {"GetMaxJerkCost", trajectory_cost::GetMaxJerkCost, 100},
   {"GetTotalJerkCost", trajectory_cost::GetTotalJerkCost, 10},
+  // TODO: Reuse GetCollisionCost data for GetBufferCost.
   {"GetCollisionCost", trajectory_cost::GetCollisionCost, 1000},
   {"GetBufferCost", trajectory_cost::GetBufferCost, 200},
   {"GetMaxAccelCost", trajectory_cost::GetMaxAccelCost, 100},
@@ -126,7 +128,8 @@ double CalculateCost(const Vehicle::Trajectory& trajectory,
                      bool is_verbose = false) {
   auto cost = 0.;
   if (is_verbose) {
-    std::cout << "Calculating cost:" << std::endl;
+    std::cout << "Calculating cost for trajectory.time " << trajectory.time
+              << std::endl;
   }
   for (const auto& wcf : WEIGHTED_COST_FUNCTIONS) {
     auto partial_cost = wcf.weight * wcf.function(trajectory,
@@ -168,7 +171,20 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
                                                   const VehicleMap& vehicles,
                                                   double d_limit,
                                                   double s_dot_limit) {
-
+/*
+  std::cout << "Generating trajectory for begin_s ("
+            << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"
+            << ", begin_d ("
+            << begin_d[0] << "," << begin_d[1] << "," << begin_d[2] << ")"
+            << ", target_s ("
+            << target_s[0] << "," << target_s[1] << "," << target_s[2] << ")"
+            << ", target_d ("
+            << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")"
+            << ", target_time " << target_time
+            << ", d_limit " << d_limit
+            << ", s_dot_limit " << s_dot_limit
+            << std::endl;
+*/
   // TODO: Replace with constant.
   auto timestep = 0.5;
 
@@ -192,19 +208,35 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   // Find best trajectory.
   auto trajectories = GetGoalTrajectories(begin_s, begin_d, all_goals);
   auto min_cost = std::numeric_limits<double>::max();
+
+  // TODO: Remove it.
+  std::set<double> all_costs;
+
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
     auto cost = CalculateCost(trajectory, target_s, target_d, target_time,
                               vehicles, d_limit, s_dot_limit);
+    all_costs.insert(cost);
+
     if (cost < min_cost) {
       min_cost = cost;
       best_trajectory = trajectory;
     }
   }
-
+/*
+  if (min_cost > 100) {
+    std::cout << "Something went wrong! The cost is too high: " << min_cost
+              << std::endl;
+  }
+  std::cout << "Other trajectory costs:";
+  for (const auto& c : all_costs) {
+    std::cout << " " << c;
+  }
+  std::cout << std::endl;
+*/
   // Print out debug data.
-  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
-                d_limit, s_dot_limit, true);
+//  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
+//                d_limit, s_dot_limit, true);
 
   return best_trajectory;
 }

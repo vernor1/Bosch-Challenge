@@ -1,6 +1,7 @@
 #ifndef PLANNERSTATE_H
 #define PLANNERSTATE_H
 
+#include <map>
 #include <memory>
 #include "vehicle.h"
 
@@ -9,15 +10,20 @@ public:
   PlannerState(std::size_t target_lane);
 
   virtual std::shared_ptr<PlannerState> GetState(
-    double lane_width,
     std::size_t n_lanes,
-    const Vehicle& this_vehicle,
+    double lane_width,
+    double preferred_buffer,
+    double preferred_speed,
+    double next_t,
+    double next_s,
+    double next_d,
     const VehicleMap& other_vehicles) = 0;
 
-  virtual void GetTarget(std::size_t& target_vehicle_id,
+  virtual void GetTarget(int& target_vehicle_id,
                          std::size_t& target_lane);
 protected:
   std::size_t target_lane_;
+  int target_vehicle_id_;
 };
 
 class PlannerStateKeepingLane : public PlannerState {
@@ -26,9 +32,13 @@ public:
   PlannerStateKeepingLane(const PlannerState& planner_state);
 
   std::shared_ptr<PlannerState> GetState(
-    double lane_width,
     std::size_t n_lanes,
-    const Vehicle& this_vehicle,
+    double lane_width,
+    double preferred_buffer,
+    double preferred_speed,
+    double next_t,
+    double next_s,
+    double next_d,
     const VehicleMap& other_vehicles) final;
 };
 
@@ -37,9 +47,13 @@ public:
   PlannerStateChangingLaneLeft(const PlannerState& planner_state);
 
   std::shared_ptr<PlannerState> GetState(
-    double lane_width,
     std::size_t n_lanes,
-    const Vehicle& this_vehicle,
+    double lane_width,
+    double preferred_buffer,
+    double preferred_speed,
+    double next_t,
+    double next_s,
+    double next_d,
     const VehicleMap& other_vehicles) final;
 };
 
@@ -48,9 +62,13 @@ public:
   PlannerStateChangingLaneRight(const PlannerState& planner_state);
 
   std::shared_ptr<PlannerState> GetState(
-    double lane_width,
     std::size_t n_lanes,
-    const Vehicle& this_vehicle,
+    double lane_width,
+    double preferred_buffer,
+    double preferred_speed,
+    double next_t,
+    double next_s,
+    double next_d,
     const VehicleMap& other_vehicles) final;
 };
 
