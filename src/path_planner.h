@@ -42,6 +42,13 @@ private:
   std::shared_ptr<PlannerState> planner_state_;
   std::deque<Vehicle::State> previous_states_s_;
   std::deque<Vehicle::State> previous_states_d_;
+  std::size_t n_remaining_planned_points_;
+
+  std::size_t GetMissingPoints() const;
+  double GetPlanningTime() const;
+  Vehicle::Trajectory GenerateTrajectory(
+    double current_d,
+    const VehicleMap& other_vehicles) const;
 };
 
 #endif // PATHPLANNER_H

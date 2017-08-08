@@ -243,8 +243,11 @@ double GetLaneCost(Lane lane,
 }
 
 inline int GetTargetVehicleId(AdjacentVehicles::const_iterator vehicle_ahead,
-                              const AdjacentVehicles& adjacent_vehicles) {
-  if (vehicle_ahead != adjacent_vehicles.end()) {
+                              const AdjacentVehicles& adjacent_vehicles,
+                              double next_s,
+                              double preferred_buffer) {
+  if (vehicle_ahead != adjacent_vehicles.end()
+      && vehicle_ahead->second.s < next_s + preferred_buffer) {
     return vehicle_ahead->second.id;
   }
   return -1;
@@ -349,7 +352,10 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
       AdjacentVehicleType::kBehindRight);
   }
 
-  target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead, adjacent_vehicles);
+  target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead,
+                                          adjacent_vehicles,
+                                          next_s,
+                                          preferred_buffer);
   if (!is_left_lane_available) {
     // Check only target lane and right lane.
     if (right_lane_cost < target_lane_cost) {
@@ -357,7 +363,9 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
                            adjacent_vehicles, preferred_buffer)) {
         target_lane_ += 1;
         target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_right,
-                                                adjacent_vehicles);
+                                                adjacent_vehicles,
+                                                next_s,
+                                                preferred_buffer);
         return std::shared_ptr<PlannerState>(
           new PlannerStateChangingLaneRight(*this));
       }
@@ -369,7 +377,9 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
                            adjacent_vehicles, preferred_buffer)) {
         target_lane_ -= 1;
         target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_left,
-                                                adjacent_vehicles);
+                                                adjacent_vehicles,
+                                                next_s,
+                                                preferred_buffer);
         return std::shared_ptr<PlannerState>(
           new PlannerStateChangingLaneLeft(*this));
       }
@@ -381,7 +391,9 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
                            adjacent_vehicles, preferred_buffer)) {
         target_lane_ -= 1;
         target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_left,
-                                                adjacent_vehicles);
+                                                adjacent_vehicles,
+                                                next_s,
+                                                preferred_buffer);
         return std::shared_ptr<PlannerState>(
           new PlannerStateChangingLaneLeft(*this));
       }
@@ -391,7 +403,9 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
                            adjacent_vehicles, preferred_buffer)) {
         target_lane_ += 1;
         target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_right,
-                                                adjacent_vehicles);
+                                                adjacent_vehicles,
+                                                next_s,
+                                                preferred_buffer);
         return std::shared_ptr<PlannerState>(
           new PlannerStateChangingLaneRight(*this));
       }
@@ -419,8 +433,13 @@ std::shared_ptr<PlannerState> PlannerStateChangingLaneLeft::GetState(
   double next_s,
   double next_d,
   const VehicleMap& other_vehicles) {
+  auto lane_number = GetLaneNumber(next_d, lane_width);
   std::cout << "PlannerStateChangingLaneLeft: next_s " << next_s
-            << ", next_d " << next_d << std::endl;
+            << ", next_d " << next_d << ", lane_number " << lane_number
+            << std::endl;
+  if (lane_number == target_lane_) {
+    return std::shared_ptr<PlannerState>(new PlannerStateKeepingLane(*this));
+  }
   return std::shared_ptr<PlannerState>();
 }
 
@@ -442,7 +461,12 @@ std::shared_ptr<PlannerState> PlannerStateChangingLaneRight::GetState(
   double next_s,
   double next_d,
   const VehicleMap& other_vehicles) {
+  auto lane_number = GetLaneNumber(next_d, lane_width);
   std::cout << "PlannerStateChangingLaneRight: next_s " << next_s
-            << ", next_d " << next_d << std::endl;
+            << ", next_d " << next_d << ", lane_number " << lane_number
+            << std::endl;
+  if (lane_number == target_lane_) {
+    return std::shared_ptr<PlannerState>(new PlannerStateKeepingLane(*this));
+  }
   return std::shared_ptr<PlannerState>();
 }
