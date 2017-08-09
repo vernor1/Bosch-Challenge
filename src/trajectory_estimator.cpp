@@ -1,11 +1,31 @@
-#include "trajectory_cost.h"
+#include "trajectory_estimator.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
 #include <set>
 #include "helpers.h"
 
+using namespace std::placeholders;
+
 namespace {
+
+// Local Types
+// -----------------------------------------------------------------------------
+
+typedef std::function<double(TrajectoryEstimator&,
+                             const Vehicle::Trajectory& trajectory,
+                             const Vehicle::State& target_s,
+                             const Vehicle::State& target_d,
+                             double target_time,
+                             const VehicleMap& vehicles,
+                             double d_limit,
+                             double s_dot_limit)> Function;
+
+struct WeightedCostFunction {
+  const char* name;
+  double weight;
+  Function function;
+};
 
 // Local Constants
 // -----------------------------------------------------------------------------
@@ -26,6 +46,32 @@ const auto MAX_JERK = 10.;
 const auto EXPECTED_JERK_IN_ONE_SEC = 2.;
 
 enum {N_SAMPLES = 100};
+
+const std::vector<WeightedCostFunction> WEIGHTED_COST_FUNCTIONS{
+  {"GetTimeDiffCost", 10, std::bind(&TrajectoryEstimator::GetTimeDiffCost,
+                                    _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetSdiffCost", 1, std::bind(&TrajectoryEstimator::GetSdiffCost,
+                                _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetDdiffCost", 10, std::bind(&TrajectoryEstimator::GetDdiffCost,
+                                 _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetEfficiencyCost", 100, std::bind(&TrajectoryEstimator::GetEfficiencyCost,
+                                       _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetMaxJerkCost", 100, std::bind(&TrajectoryEstimator::GetMaxJerkCost,
+                                    _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetTotalJerkCost", 10, std::bind(&TrajectoryEstimator::GetTotalJerkCost,
+                                     _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetCollisionCost", 1000, std::bind(&TrajectoryEstimator::GetCollisionCost,
+                                       _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetBufferCost", 200, std::bind(&TrajectoryEstimator::GetBufferCost,
+                                   _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetMaxAccelCost", 100, std::bind(&TrajectoryEstimator::GetMaxAccelCost,
+                                     _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetTotalAccelCost", 10, std::bind(&TrajectoryEstimator::GetTotalAccelCost,
+                                      _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetOffRoadCost", 1000, std::bind(&TrajectoryEstimator::GetOffRoadCost,
+                                     _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"GetSpeedingCost", 1000, std::bind(&TrajectoryEstimator::GetSpeedingCost,
+                                      _1, _2, _3, _4, _5, _6, _7, _8)}};
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -92,19 +138,56 @@ double GetClosestDistanceToAnyVehicle(
 
 } // namespace
 
-// Cost Functions
+// Public Methods
 // -----------------------------------------------------------------------------
-double trajectory_cost::GetTimeDiffCost(const Vehicle::Trajectory& trajectory,
-                                        const Vehicle::State& /*target_s*/,
-                                        const Vehicle::State& /*target_d*/,
-                                        double target_time,
-                                        const VehicleMap& /*vehicles*/,
-                                        double /*d_limit*/,
-                                        double /*s_dot_limit*/) {
+
+TrajectoryEstimator::TrajectoryEstimator()
+  : is_closest_distance_computed_() {
+}
+
+double TrajectoryEstimator::GetCost(const Vehicle::Trajectory& trajectory,
+                                    const Vehicle::State& target_s,
+                                    const Vehicle::State& target_d,
+                                    double target_time,
+                                    const VehicleMap& vehicles,
+                                    double d_limit,
+                                    double s_dot_limit,
+                                    bool is_verbose) {
+  auto cost = 0.;
+  if (is_verbose) {
+    std::cout << "Calculating cost for trajectory.time " << trajectory.time
+              << std::endl;
+  }
+  for (const auto& wcf : WEIGHTED_COST_FUNCTIONS) {
+    auto partial_cost = wcf.weight * wcf.function(*this,
+                                                  trajectory,
+                                                  target_s,
+                                                  target_d,
+                                                  target_time,
+                                                  vehicles,
+                                                  d_limit,
+                                                  s_dot_limit);
+    if (is_verbose) {
+      std::cout << "cost for " << wcf.name << " is \t " << partial_cost
+      << std::endl;
+    }
+    cost += partial_cost;
+  }
+  return cost;
+}
+
+double TrajectoryEstimator::GetTimeDiffCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double target_time,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
   return GetLogistic(std::fabs(trajectory.time - target_time) / target_time);
 }
 
-double trajectory_cost::GetSdiffCost(const Vehicle::Trajectory& trajectory,
+double TrajectoryEstimator::GetSdiffCost(const Vehicle::Trajectory& trajectory,
                                      const Vehicle::State& target_s,
                                      const Vehicle::State& /*target_d*/,
                                      double /*target_time*/,
@@ -126,7 +209,7 @@ double trajectory_cost::GetSdiffCost(const Vehicle::Trajectory& trajectory,
   return cost;
 }
 
-double trajectory_cost::GetDdiffCost(const Vehicle::Trajectory& trajectory,
+double TrajectoryEstimator::GetDdiffCost(const Vehicle::Trajectory& trajectory,
                                      const Vehicle::State& /*target_s*/,
                                      const Vehicle::State& target_d,
                                      double /*target_time*/,
@@ -148,35 +231,43 @@ double trajectory_cost::GetDdiffCost(const Vehicle::Trajectory& trajectory,
   return cost;
 }
 
-double trajectory_cost::GetCollisionCost(const Vehicle::Trajectory& trajectory,
-                                         const Vehicle::State& /*target_s*/,
-                                         const Vehicle::State& /*target_d*/,
-                                         double /*target_time*/,
-                                         const VehicleMap& vehicles,
-                                         double /*d_limit*/,
-                                         double /*s_dot_limit*/) {
-  auto closest_distance = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
-  return closest_distance < 2. * VEHICLE_RADIUS ? 1 : 0;
+double TrajectoryEstimator::GetCollisionCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double /*target_time*/,
+  const VehicleMap& vehicles,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
+  if (!is_closest_distance_computed_) {
+    closest_distance_ = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
+    is_closest_distance_computed_ = true;
+  }
+  return closest_distance_ < 2. * VEHICLE_RADIUS ? 1 : 0;
 }
 
-double trajectory_cost::GetBufferCost(const Vehicle::Trajectory& trajectory,
+double TrajectoryEstimator::GetBufferCost(const Vehicle::Trajectory& trajectory,
                                       const Vehicle::State& /*target_s*/,
                                       const Vehicle::State& /*target_d*/,
                                       double /*target_time*/,
                                       const VehicleMap& vehicles,
                                       double /*d_limit*/,
                                       double /*s_dot_limit*/) {
-  auto closest_distance = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
-  return GetLogistic(2. * VEHICLE_RADIUS / closest_distance);
+  if (!is_closest_distance_computed_) {
+    closest_distance_ = GetClosestDistanceToAnyVehicle(trajectory, vehicles);
+    is_closest_distance_computed_ = true;
+  }
+  return GetLogistic(2. * VEHICLE_RADIUS / closest_distance_);
 }
 
-double trajectory_cost::GetOffRoadCost(const Vehicle::Trajectory& trajectory,
-                                       const Vehicle::State& /*target_s*/,
-                                       const Vehicle::State& /*target_d*/,
-                                       double /*target_time*/,
-                                       const VehicleMap& /*vehicles*/,
-                                       double d_limit,
-                                       double s_dot_limit) {
+double TrajectoryEstimator::GetOffRoadCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double /*target_time*/,
+  const VehicleMap& /*vehicles*/,
+  double d_limit,
+  double s_dot_limit) {
   auto dt = trajectory.time / N_SAMPLES;
   for (auto i = 0; i < N_SAMPLES; ++i) {
     auto t = static_cast<double>(i) * dt;
@@ -188,13 +279,14 @@ double trajectory_cost::GetOffRoadCost(const Vehicle::Trajectory& trajectory,
   return 0;
 }
 
-double trajectory_cost::GetSpeedingCost(const Vehicle::Trajectory& trajectory,
-                                        const Vehicle::State& /*target_s*/,
-                                        const Vehicle::State& /*target_d*/,
-                                        double /*target_time*/,
-                                        const VehicleMap& /*vehicles*/,
-                                        double /*d_limit*/,
-                                        double s_dot_limit) {
+double TrajectoryEstimator::GetSpeedingCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double /*target_time*/,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double s_dot_limit) {
   auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
   auto dt = trajectory.time / N_SAMPLES;
   for (auto i = 0; i < N_SAMPLES; ++i) {
@@ -207,13 +299,14 @@ double trajectory_cost::GetSpeedingCost(const Vehicle::Trajectory& trajectory,
   return 0;
 }
 
-double trajectory_cost::GetEfficiencyCost(const Vehicle::Trajectory& trajectory,
-                                          const Vehicle::State& target_s,
-                                          const Vehicle::State& /*target_d*/,
-                                          double /*target_time*/,
-                                          const VehicleMap& /*vehicles*/,
-                                          double /*d_limit*/,
-                                          double /*s_dot_limit*/) {
+double TrajectoryEstimator::GetEfficiencyCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& target_s,
+  const Vehicle::State& /*target_d*/,
+  double /*target_time*/,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
   auto avg_v = helpers::EvaluatePolynomial(trajectory.s_coeffs, trajectory.time)
                / trajectory.time;
 /*
@@ -227,13 +320,14 @@ double trajectory_cost::GetEfficiencyCost(const Vehicle::Trajectory& trajectory,
   return GetLogistic(2. * (target_s[1] - avg_v) / avg_v);
 }
 
-double trajectory_cost::GetMaxAccelCost(const Vehicle::Trajectory& trajectory,
-                                        const Vehicle::State& /*target_s*/,
-                                        const Vehicle::State& /*target_d*/,
-                                        double target_time,
-                                        const VehicleMap& /*vehicles*/,
-                                        double /*d_limit*/,
-                                        double /*s_dot_limit*/) {
+double TrajectoryEstimator::GetMaxAccelCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double target_time,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
   auto s_double_dot = helpers::GetDerivative(helpers::GetDerivative(
     trajectory.s_coeffs));
   std::set<double> accels;
@@ -245,13 +339,14 @@ double trajectory_cost::GetMaxAccelCost(const Vehicle::Trajectory& trajectory,
   return *accels.rbegin() > MAX_ACCEL ? 1 : 0;
 }
 
-double trajectory_cost::GetTotalAccelCost(const Vehicle::Trajectory& trajectory,
-                                          const Vehicle::State& /*target_s*/,
-                                          const Vehicle::State& /*target_d*/,
-                                          double target_time,
-                                          const VehicleMap& /*vehicles*/,
-                                          double /*d_limit*/,
-                                          double /*s_dot_limit*/) {
+double TrajectoryEstimator::GetTotalAccelCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double target_time,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
   auto s_double_dot = helpers::GetDerivative(helpers::GetDerivative(
     trajectory.s_coeffs));
   auto total_accel = 0.;
@@ -264,13 +359,14 @@ double trajectory_cost::GetTotalAccelCost(const Vehicle::Trajectory& trajectory,
   return GetLogistic(accel_per_second / EXPECTED_ACCEL_IN_ONE_SEC);
 }
 
-double trajectory_cost::GetMaxJerkCost(const Vehicle::Trajectory& trajectory,
-                                       const Vehicle::State& /*target_s*/,
-                                       const Vehicle::State& /*target_d*/,
-                                       double target_time,
-                                       const VehicleMap& /*vehicles*/,
-                                       double /*d_limit*/,
-                                       double /*s_dot_limit*/) {
+double TrajectoryEstimator::GetMaxJerkCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double target_time,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
   auto jerk = helpers::GetDerivative(helpers::GetDerivative(
     helpers::GetDerivative(trajectory.s_coeffs)));
   std::set<double> jerks;
@@ -282,13 +378,14 @@ double trajectory_cost::GetMaxJerkCost(const Vehicle::Trajectory& trajectory,
   return *jerks.rbegin() > MAX_JERK ? 1 : 0;
 }
 
-double trajectory_cost::GetTotalJerkCost(const Vehicle::Trajectory& trajectory,
-                                         const Vehicle::State& /*target_s*/,
-                                         const Vehicle::State& /*target_d*/,
-                                         double target_time,
-                                         const VehicleMap& /*vehicles*/,
-                                         double /*d_limit*/,
-                                         double /*s_dot_limit*/) {
+double TrajectoryEstimator::GetTotalJerkCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double target_time,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
   auto jerk = helpers::GetDerivative(helpers::GetDerivative(
     helpers::GetDerivative(trajectory.s_coeffs)));
   auto total_jerk = 0.;

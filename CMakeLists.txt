@@ -12,7 +12,7 @@ set(sources src/coordinate_converter.cpp
             src/helpers.cpp
             src/path_planner.cpp
             src/planner_state.cpp
-            src/trajectory_cost.cpp
+            src/trajectory_estimator.cpp
             src/trajectory_generator.cpp
             src/vehicle.cpp)
 
@@ -74,7 +74,7 @@ if (test)
 
   # Components under test
   # ----------------------------------------------------------------------------
-  add_library(trajectory_cost_lib src/trajectory_cost.cpp)
+  add_library(trajectory_cost_lib src/trajectory_estimator.cpp)
   add_library(vehicle_lib src/vehicle.cpp)
   add_library(helpers_lib src/helpers.cpp)
 

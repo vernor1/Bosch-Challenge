@@ -3,7 +3,7 @@
 #include <set>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
-#include "trajectory_cost.h"
+#include "trajectory_estimator.h"
 
 namespace {
 
@@ -16,31 +16,10 @@ struct Goal {
   double time;
 };
 
-struct WeightedCostFunction {
-  const char* name;
-  trajectory_cost::Function function;
-  double weight;
-};
-
 // Local Constants
 // -----------------------------------------------------------------------------
 
 enum {N_SAMPLES = 10};
-
-const std::vector<WeightedCostFunction> WEIGHTED_COST_FUNCTIONS{
-  {"GetTimeDiffCost", trajectory_cost::GetTimeDiffCost, 10},
-  {"GetSdiffCost", trajectory_cost::GetSdiffCost, 1},
-  {"GetDdiffCost", trajectory_cost::GetDdiffCost, 10},
-  {"GetEfficiencyCost", trajectory_cost::GetEfficiencyCost, 100},
-  {"GetMaxJerkCost", trajectory_cost::GetMaxJerkCost, 100},
-  {"GetTotalJerkCost", trajectory_cost::GetTotalJerkCost, 10},
-  // TODO: Reuse GetCollisionCost data for GetBufferCost.
-  {"GetCollisionCost", trajectory_cost::GetCollisionCost, 1000},
-  {"GetBufferCost", trajectory_cost::GetBufferCost, 200},
-  {"GetMaxAccelCost", trajectory_cost::GetMaxAccelCost, 100},
-  {"GetTotalAccelCost", trajectory_cost::GetTotalAccelCost, 10},
-  {"GetOffRoadCost", trajectory_cost::GetOffRoadCost, 1000},
-  {"GetSpeedingCost", trajectory_cost::GetSpeedingCost, 1000}};
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -118,36 +97,6 @@ void GetTargetState(const Vehicle& target_vehicle,
   assert(target_d.size() == Vehicle::STATE_ORDER);
 }
 
-double CalculateCost(const Vehicle::Trajectory& trajectory,
-                     const Vehicle::State& target_s,
-                     const Vehicle::State& target_d,
-                     double target_time,
-                     const VehicleMap& vehicles,
-                     double d_limit,
-                     double s_dot_limit,
-                     bool is_verbose = false) {
-  auto cost = 0.;
-  if (is_verbose) {
-    std::cout << "Calculating cost for trajectory.time " << trajectory.time
-              << std::endl;
-  }
-  for (const auto& wcf : WEIGHTED_COST_FUNCTIONS) {
-    auto partial_cost = wcf.weight * wcf.function(trajectory,
-                                                  target_s,
-                                                  target_d,
-                                                  target_time,
-                                                  vehicles,
-                                                  d_limit,
-                                                  s_dot_limit);
-    if (is_verbose) {
-      std::cout << "cost for " << wcf.name << " is \t " << partial_cost
-      << std::endl;
-    }
-    cost += partial_cost;
-  }
-  return cost;
-}
-
 } // namespace
 
 // Public Methods
@@ -212,10 +161,13 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   // TODO: Remove it.
   std::set<double> all_costs;
 
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
-    auto cost = CalculateCost(trajectory, target_s, target_d, target_time,
-                              vehicles, d_limit, s_dot_limit);
+    auto cost = trajectory_estimator.GetCost(trajectory,
+                                             target_s, target_d,
+                                             target_time, vehicles,
+                                             d_limit, s_dot_limit);
     all_costs.insert(cost);
 
     if (cost < min_cost) {
@@ -277,14 +229,17 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   // Find best trajectory.
   auto trajectories = GetGoalTrajectories(begin_s, begin_d, all_goals);
   auto min_cost = std::numeric_limits<double>::max();
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
     Vehicle::State target_s;
     Vehicle::State target_d;
     GetTargetState(target_vehicle, trajectory.time,
                    delta_s, delta_d, target_s, target_d);
-    auto cost = CalculateCost(trajectory, target_s, target_d, target_time,
-                              vehicles, d_limit, s_dot_limit);
+    auto cost = trajectory_estimator.GetCost(trajectory,
+                                             target_s, target_d,
+                                             target_time, vehicles,
+                                             d_limit, s_dot_limit);
     if (cost < min_cost) {
       min_cost = cost;
       best_trajectory = trajectory;
