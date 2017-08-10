@@ -62,190 +62,172 @@ void GetTargetState(const Vehicle& target_vehicle,
     (total_accel_cost,  1)
 */
 
-TEST(TrajectoryEstimator, GetTimeDiffCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(
-    new TrajectoryEstimator);
+TEST(TrajectoryEstimator, TimeDiffCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost =  trajectory_estimator->GetTimeDiffCost(BEST_TRAJECTORY,
+  auto cost =  trajectory_estimator.GetCost("TimeDiff", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.0665680765023, cost, 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetTimeDiffCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("TimeDiff", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.0665680765023, cost, 1e-3);
 }
 
-TEST(TrajectoryEstimator, GetSdiffCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+TEST(TrajectoryEstimator, SdiffCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetSdiffCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("Sdiff", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(8.881784197e-14, cost * 100., 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetSdiffCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("Sdiff", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0., cost * 100., 1e-3);
 }
 
-TEST(TrajectoryEstimator, GetDdiffCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+TEST(TrajectoryEstimator, DdiffCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetDdiffCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("Ddiff", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(6.66133814775e-14, cost * 100., 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetDdiffCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("Ddiff", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(6.66133814775e-14, cost * 100., 1e-3);
 }
 
-TEST(TrajectoryEstimator, GetEfficiencyCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+TEST(TrajectoryEstimator, EfficiencyCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetEfficiencyCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("Efficiency", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.29833624069813736, cost, 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetEfficiencyCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("Efficiency", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.030293758250092173, cost, 1e-3);
 }
 
-TEST(TrajectoryEstimator, GetMaxJerkCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+TEST(TrajectoryEstimator, MaxJerkCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetMaxJerkCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("MaxJerk", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.0, cost * 10., 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetMaxJerkCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("MaxJerk", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.0, cost * 10., 1e-3);
 }
 
-TEST(TrajectoryEstimator, GetTotalJerkCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+TEST(TrajectoryEstimator, TotalJerkCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetTotalJerkCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("TotalJerk", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.0532924045646, cost, 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetTotalJerkCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("TotalJerk", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.0160015167532, cost, 1e-3);
 }
 
-TEST(TrajectoryEstimator, GetCollisionCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+TEST(TrajectoryEstimator, CollisionCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetCollisionCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("Collision", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0., cost * 100., 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetCollisionCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("Collision", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(100., cost * 100., 1e-3);
 }
 
 TEST(TrajectoryEstimator, GetBufferCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetBufferCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("Buffer", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(4.38398629204, cost * 10., 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetBufferCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("Buffer", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(8.21378211245, cost * 10., 1e-3);
 }
 
-TEST(TrajectoryEstimator, GetMaxAccelCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+TEST(TrajectoryEstimator, MaxAccelCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetMaxAccelCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("MaxAccel", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0., cost * 10, 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetMaxAccelCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("MaxAccel", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0., cost * 10, 1e-3);
 }
 
-TEST(TrajectoryEstimator, GetTotalAccelCost) {
-  std::shared_ptr<TrajectoryEstimator> trajectory_estimator(new TrajectoryEstimator);
+TEST(TrajectoryEstimator, TotalAccelCost) {
+  TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator->GetTotalAccelCost(BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("TotalAccel", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.321979347364, cost, 1e-3);
 
-  trajectory_estimator.reset(new TrajectoryEstimator);
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator->GetTotalAccelCost(COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("TotalAccel", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0.0998225885096, cost, 1e-3);
-}
-
-int main(int argc, char* argv[])
-{
-  ::testing::InitGoogleTest(&argc, argv);
-  int ret = RUN_ALL_TESTS();
-  return ret;
 }

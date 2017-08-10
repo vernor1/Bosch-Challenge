@@ -202,7 +202,6 @@ double GetLaneSpeedCost(Lane lane,
                         double preferred_buffer,
                         double preferred_speed,
                         const AdjacentVehicles& vehicles) {
-  auto vehicle_ahead_speed = 0.;
   AdjacentVehicles::const_iterator vehicle_ahead;
   switch (lane) {
     case Lane::kTarget:

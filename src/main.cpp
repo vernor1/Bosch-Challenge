@@ -69,7 +69,7 @@ void ControlSimulator(uWS::WebSocket<uWS::SERVER>& ws,
   auto msg = "42[\"control\"," + json_msg.dump() + "]";
   ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 }
-
+/*
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
@@ -171,7 +171,7 @@ vector<double> getFrenet(double x, double y, double theta, vector<double> maps_x
   return {frenet_s,frenet_d};
 
 }
-/*
+
 struct Frenet {
   double s;
   double d;
@@ -213,7 +213,7 @@ Cartesian GetCartesian(const Frenet& frenet,
 
   return cartesian;
 }
-*/
+
 // Transform from Frenet s,d coordinates to Cartesian x,y
 vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> maps_x, vector<double> maps_y)
 {
@@ -242,7 +242,7 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 
   return {x,y};
 }
-
+*/
 } // namespace
 
 // main

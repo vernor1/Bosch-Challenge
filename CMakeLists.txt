@@ -2,7 +2,7 @@ project(Path_Planning)
 
 cmake_minimum_required (VERSION 3.5)
 
-add_definitions(-std=c++11 -O3)
+add_definitions(-Werror -Wall -std=c++11 -O3)
 
 set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
@@ -60,7 +60,16 @@ if (test)
     "IMPORTED_LOCATION" "${binary_dir}/googlemock/gtest/libgtest.a"
   )
 
-  # Create a libgmock target to be used as a dependency by test programs
+  # Create a libgtest_main target to be used as a dependency by test programs.
+  add_library(libgtest_main IMPORTED STATIC GLOBAL)
+  add_dependencies(libgtest_main gtest)
+
+  # Set libgtest_main properties
+  set_target_properties(libgtest_main PROPERTIES
+    "IMPORTED_LOCATION" "${binary_dir}/googlemock/gtest/libgtest_main.a"
+  )
+
+  # Create a libgmock target to be used as a dependency by test programs.
   add_library(libgmock IMPORTED STATIC GLOBAL)
   add_dependencies(libgmock gtest)
 
@@ -85,7 +94,7 @@ if (test)
   add_executable(test_trajectory_cost unittests/test_trajectory_cost.cpp)
 
   # Standard linking to gtest stuff
-  target_link_libraries(test_trajectory_cost libgtest)
+  target_link_libraries(test_trajectory_cost libgtest libgtest_main)
 
   # Extra linking for the project
   target_link_libraries(test_trajectory_cost
