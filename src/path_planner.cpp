@@ -229,6 +229,7 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
             << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"
             << ", begin_d ("
             << begin_d[0] << "," << begin_d[1] << "," << begin_d[2] << ")";
+  Vehicle::State target_d = {d, 0, 0};
   if (target_vehicle_id >= 0) {
     // Target vehicle is known, follow it.
     auto target_vehicle = other_vehicles.find(target_vehicle_id);
@@ -236,17 +237,17 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
     Vehicle::State target_vehicle_s0;
     Vehicle::State target_vehicle_d0;
     target_vehicle->second.GetState(planning_time, target_vehicle_s0, target_vehicle_d0);
-    auto d_diff = d - target_vehicle_d0[0];
+//    auto d_diff = d - target_vehicle_d0[0];
     Vehicle::State delta_s = {-PREFERRED_BUFFER, 0, 0};
-    Vehicle::State delta_d = {d_diff, 0, 0};
+//    Vehicle::State delta_d = {d_diff, 0, 0};
     std::cout << ", target_vehicle_id " << target_vehicle_id << ", delta_s ("
               << delta_s[0] << "," << delta_s[1] << "," << delta_s[2] << ")"
-              << ", delta_d ("
-              << delta_d[0] << "," << delta_d[1] << "," << delta_d[2] << ")"
+              << ", target_d ("
+              << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")"
               << std::endl;
     trajectory = trajectory_generator_.Generate(begin_s, begin_d,
                                                 target_vehicle_id,
-                                                delta_s, delta_d,
+                                                delta_s, target_d,
                                                 planning_time,
                                                 other_vehicles,
                                                 ROAD_WIDTH, SPEED_LIMIT);
@@ -255,7 +256,6 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
     Vehicle::State target_s = {PREFERRED_SPEED * planning_time,
                                PREFERRED_SPEED,
                                0};
-    Vehicle::State target_d = {d, 0, 0};
     std::cout << ", target_s ("
               << target_s[0] << "," << target_s[1] << "," << target_s[2] << ")"
               << ", target_d ("

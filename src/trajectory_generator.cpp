@@ -73,16 +73,13 @@ std::vector<Vehicle::Trajectory> GetGoalTrajectories(
   return trajectories;
 }
 
-void GetTargetState(const Vehicle& target_vehicle,
-                    double target_time,
-                    const Vehicle::State& delta_s,
-                    const Vehicle::State& delta_d,
-                    Vehicle::State& target_s,
-                    Vehicle::State& target_d) {
+Vehicle::State GetTargetS(const Vehicle& target_vehicle,
+                          double target_time,
+                          const Vehicle::State& delta_s) {
   assert(delta_s.size() == Vehicle::STATE_ORDER);
-  assert(delta_d.size() == Vehicle::STATE_ORDER);
-  target_s.clear();
-  target_d.clear();
+//  assert(delta_d.size() == Vehicle::STATE_ORDER);
+  Vehicle::State target_s;
+//  target_d.clear();
   Vehicle::State target_vehicle_s;
   Vehicle::State target_vehicle_d;
   target_vehicle.GetState(target_time, target_vehicle_s, target_vehicle_d);
@@ -90,10 +87,13 @@ void GetTargetState(const Vehicle& target_vehicle,
                  delta_s.begin(),
                  std::back_inserter(target_s), std::plus<double>());
   assert(target_s.size() == Vehicle::STATE_ORDER);
+/*
   std::transform(target_vehicle_d.begin(), target_vehicle_d.end(),
                  delta_d.begin(),
                  std::back_inserter(target_d), std::plus<double>());
   assert(target_d.size() == Vehicle::STATE_ORDER);
+*/
+  return target_s;
 }
 
 } // namespace
@@ -119,7 +119,7 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
                                                   const VehicleMap& vehicles,
                                                   double d_limit,
                                                   double s_dot_limit) const {
-  auto start = std::chrono::steady_clock::now();
+//  auto start = std::chrono::steady_clock::now();
 /*
   std::cout << "Generating trajectory for begin_s ("
             << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"
@@ -187,12 +187,13 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   // Print out debug data.
 //  trajectory_estimator.GetCost(best_trajectory, target_s, target_d, target_time,
 //                               vehicles, d_limit, s_dot_limit, true);
+/*
   auto stop = std::chrono::steady_clock::now();
   auto diff = stop - start;
   std::cout << "Generate completed in "
             << std::chrono::duration<double, std::milli>(diff).count()
             << " ms" << std::endl;
-
+*/
   return best_trajectory;
 }
 
@@ -200,7 +201,8 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
                                                   const Vehicle::State& begin_d,
                                                   std::size_t target_vehicle_id,
                                                   const Vehicle::State& delta_s,
-                                                  const Vehicle::State& delta_d,
+//                                                  const Vehicle::State& delta_d,
+                                                  const Vehicle::State& target_d,
                                                   double target_time,
                                                   const VehicleMap& vehicles,
                                                   double d_limit,
@@ -213,9 +215,7 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   auto timestep = 0.5;
   for (auto t = target_time - 4. * timestep; t <= target_time + 4. * timestep;
       t += timestep) {
-    Vehicle::State target_s;
-    Vehicle::State target_d;
-    GetTargetState(target_vehicle, t, delta_s, delta_d, target_s, target_d);
+    auto target_s = GetTargetS(target_vehicle, t, delta_s);
     Goal base_goal{target_s, target_d, t};
     std::vector<Goal> goals;
     goals.push_back(base_goal);
@@ -234,10 +234,7 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   auto min_cost = std::numeric_limits<double>::max();
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
-    Vehicle::State target_s;
-    Vehicle::State target_d;
-    GetTargetState(target_vehicle, trajectory.time,
-                   delta_s, delta_d, target_s, target_d);
+    auto target_s = GetTargetS(target_vehicle, trajectory.time, delta_s);
     auto cost = trajectory_estimator_.GetCost(trajectory,
                                               target_s, target_d,
                                               target_time, vehicles,
@@ -249,10 +246,7 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   }
 
   // Print out debug data.
-  Vehicle::State target_s;
-  Vehicle::State target_d;
-  GetTargetState(target_vehicle, best_trajectory.time,
-                 delta_s, delta_d, target_s, target_d);
+  auto target_s = GetTargetS(target_vehicle, best_trajectory.time, delta_s);
 //  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
 //                d_limit, s_dot_limit, true);
 
