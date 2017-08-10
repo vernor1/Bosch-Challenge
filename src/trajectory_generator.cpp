@@ -3,7 +3,6 @@
 #include <set>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
-#include "trajectory_estimator.h"
 
 namespace {
 
@@ -120,6 +119,7 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
                                                   const VehicleMap& vehicles,
                                                   double d_limit,
                                                   double s_dot_limit) const {
+  auto start = std::chrono::steady_clock::now();
 /*
   std::cout << "Generating trajectory for begin_s ("
             << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"
@@ -160,14 +160,12 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
 
   // TODO: Remove it.
   std::set<double> all_costs;
-
-  TrajectoryEstimator trajectory_estimator;
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
-    auto cost = trajectory_estimator.GetCost(trajectory,
-                                             target_s, target_d,
-                                             target_time, vehicles,
-                                             d_limit, s_dot_limit);
+    auto cost = trajectory_estimator_.GetCost(trajectory,
+                                              target_s, target_d,
+                                              target_time, vehicles,
+                                              d_limit, s_dot_limit);
     all_costs.insert(cost);
 
     if (cost < min_cost) {
@@ -187,8 +185,13 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   std::cout << std::endl;
 */
   // Print out debug data.
-//  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
-//                d_limit, s_dot_limit, true);
+//  trajectory_estimator.GetCost(best_trajectory, target_s, target_d, target_time,
+//                               vehicles, d_limit, s_dot_limit, true);
+  auto stop = std::chrono::steady_clock::now();
+  auto diff = stop - start;
+  std::cout << "Generate completed in "
+            << std::chrono::duration<double, std::milli>(diff).count()
+            << " ms" << std::endl;
 
   return best_trajectory;
 }
@@ -229,17 +232,16 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   // Find best trajectory.
   auto trajectories = GetGoalTrajectories(begin_s, begin_d, all_goals);
   auto min_cost = std::numeric_limits<double>::max();
-  TrajectoryEstimator trajectory_estimator;
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
     Vehicle::State target_s;
     Vehicle::State target_d;
     GetTargetState(target_vehicle, trajectory.time,
                    delta_s, delta_d, target_s, target_d);
-    auto cost = trajectory_estimator.GetCost(trajectory,
-                                             target_s, target_d,
-                                             target_time, vehicles,
-                                             d_limit, s_dot_limit);
+    auto cost = trajectory_estimator_.GetCost(trajectory,
+                                              target_s, target_d,
+                                              target_time, vehicles,
+                                              d_limit, s_dot_limit);
     if (cost < min_cost) {
       min_cost = cost;
       best_trajectory = trajectory;

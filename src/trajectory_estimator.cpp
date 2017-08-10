@@ -82,67 +82,30 @@ double GetLogistic(double x) {
   return 2. / (1. + std::exp(-x)) - 1.0;
 }
 
-// Calculates the closest distance to any vehicle during a trajectory.
-double GetClosestDistanceToAnyVehicle(
-  const Vehicle::Trajectory& trajectory,
-  const VehicleMap& vehicles) {
-  auto vehicle_id = -1;
-  auto closest_distance = std::numeric_limits<double>::max();
-//  auto start = std::chrono::steady_clock::now();
-
-  // Don't take vehicles following the car into consideration.
-  VehicleMap vehicles_of_interest;
-  auto d0 = helpers::EvaluatePolynomial(trajectory.d_coeffs, 0);
-  for (const auto& v : vehicles) {
-    Vehicle::State vehicle_s0;
-    Vehicle::State vehicle_d0;
-    v.second.GetState(0, vehicle_s0, vehicle_d0);
-    if (std::fabs(d0 - vehicle_d0[0]) > VEHICLE_RADIUS
-        || vehicle_s0[0] > -VEHICLE_RADIUS) {
-      vehicles_of_interest.insert(v);
-    } else {
-//      std::cout << "Not interested in vehicle Id " << v.first << std::endl;
-    }
-  }
-
-  auto dt = trajectory.time / N_SAMPLES;
-  for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * dt;
-    auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t);
-    auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
-    for (const auto& v : vehicles_of_interest) {
-      Vehicle::State vehicle_s;
-      Vehicle::State vehicle_d;
-      v.second.GetState(t, vehicle_s, vehicle_d);
-      auto diff_s = s - vehicle_s[0];
-      auto diff_d = d - vehicle_d[0];
-      auto distance = std::sqrt(diff_s * diff_s + diff_d * diff_d);
-      if (distance < closest_distance) {
-        closest_distance = distance;
-        vehicle_id = v.first;
-      }
-    }
-  }
-
-//  auto stop = std::chrono::steady_clock::now();
-//  auto diff = stop - start;
-//  std::cout << "GetClosestDistanceToAnyVehicle completed in "
-//            << std::chrono::duration<double, std::milli>(diff).count()
-//            << " ms" << std::endl;
-//  if (closest_distance < 2. * VEHICLE_RADIUS) {
-//    std::cout << "Colliding with vehicle Id " << vehicle_id << ", distance "
-//              << closest_distance << std::endl;
-//  }
-  return closest_distance;
-}
-
 } // namespace
 
 // Public Methods
 // -----------------------------------------------------------------------------
 
 TrajectoryEstimator::TrajectoryEstimator()
-  : is_closest_distance_computed_() {
+  : is_trajectory_dt_computed_(),
+    is_target_dt_computed_(),
+    is_trajectory_t_computed_(),
+    trajectory_t_(N_SAMPLES),
+    is_target_t_computed_(),
+    target_t_(N_SAMPLES),
+    is_s_dot_coeffs_computed_(),
+    is_s_double_dot_coeffs_computed_(),
+    is_jerk_coeffs_computed_(),
+    is_trajectory_s_computed_(),
+    trajectory_s_(N_SAMPLES),
+    is_trajectory_d_computed_(),
+    trajectory_d_(N_SAMPLES),
+    is_target_s_double_dot_computed_(),
+    target_s_double_dot_(N_SAMPLES),
+    is_target_jerk_computed_(),
+    target_jerk_(N_SAMPLES),
+    is_closest_distance_computed_() {
 }
 
 double TrajectoryEstimator::GetCost(const Vehicle::Trajectory& trajectory,
@@ -153,6 +116,18 @@ double TrajectoryEstimator::GetCost(const Vehicle::Trajectory& trajectory,
                                     double d_limit,
                                     double s_dot_limit,
                                     bool is_verbose) {
+  is_trajectory_dt_computed_ = false;
+  is_target_dt_computed_ = false;
+  is_trajectory_t_computed_ = false;
+  is_target_t_computed_ = false;
+  is_s_dot_coeffs_computed_ = false;
+  is_s_double_dot_coeffs_computed_ = false;
+  is_jerk_coeffs_computed_ = false;
+  is_trajectory_s_computed_ = false;
+  is_trajectory_d_computed_ = false;
+  is_target_s_double_dot_computed_ = false;
+  is_target_jerk_computed_ = false;
+  is_closest_distance_computed_ = false;
   auto cost = 0.;
   if (is_verbose) {
     std::cout << "Calculating cost for trajectory.time " << trajectory.time
@@ -194,10 +169,10 @@ double TrajectoryEstimator::GetSdiffCost(const Vehicle::Trajectory& trajectory,
                                      const VehicleMap& vehicles,
                                      double /*d_limit*/,
                                      double /*s_dot_limit*/) {
+  ComputeSDoubleDotCoeffs(trajectory.s_coeffs);
   std::vector<std::vector<double>> polyAndDerivatives = {{trajectory.s_coeffs}};
-  auto s_dot = helpers::GetDerivative(trajectory.s_coeffs);
-  polyAndDerivatives.push_back(s_dot);
-  polyAndDerivatives.push_back(helpers::GetDerivative(s_dot));
+  polyAndDerivatives.push_back(s_dot_coeffs_);
+  polyAndDerivatives.push_back(s_double_dot_coeffs_);
   assert(polyAndDerivatives.size() == Vehicle::STATE_ORDER);
   auto cost = 0.;
   for (std::size_t i = 0; i < polyAndDerivatives.size(); ++i) {
@@ -217,9 +192,9 @@ double TrajectoryEstimator::GetDdiffCost(const Vehicle::Trajectory& trajectory,
                                      double /*d_limit*/,
                                      double /*s_dot_limit*/) {
   std::vector<std::vector<double>> polyAndDerivatives = {{trajectory.d_coeffs}};
-  auto d_dot = helpers::GetDerivative(trajectory.d_coeffs);
-  polyAndDerivatives.push_back(d_dot);
-  polyAndDerivatives.push_back(helpers::GetDerivative(d_dot));
+  auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
+  polyAndDerivatives.push_back(d_dot_coeffs);
+  polyAndDerivatives.push_back(helpers::GetDerivative(d_dot_coeffs));
   assert(polyAndDerivatives.size() == Vehicle::STATE_ORDER);
   auto cost = 0.;
   for (std::size_t i = 0; i < polyAndDerivatives.size(); ++i) {
@@ -268,10 +243,8 @@ double TrajectoryEstimator::GetOffRoadCost(
   const VehicleMap& /*vehicles*/,
   double d_limit,
   double s_dot_limit) {
-  auto dt = trajectory.time / N_SAMPLES;
-  for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * dt;
-    auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
+  ComputeTrajectoryD(trajectory.time, trajectory.d_coeffs);
+  for (auto d : trajectory_d_) {
     if (d < VEHICLE_RADIUS || d > d_limit - VEHICLE_RADIUS) {
       return 1;
     }
@@ -287,11 +260,10 @@ double TrajectoryEstimator::GetSpeedingCost(
   const VehicleMap& /*vehicles*/,
   double /*d_limit*/,
   double s_dot_limit) {
-  auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
-  auto dt = trajectory.time / N_SAMPLES;
+  ComputeTrajectoryT(trajectory.time);
+  ComputeSDotCoeffs(trajectory.s_coeffs);
   for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * dt;
-    auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, t);
+    auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs_, trajectory_t_[i]);
     if (s_dot < 0 || s_dot > s_dot_limit) {
       return 1;
     }
@@ -328,13 +300,10 @@ double TrajectoryEstimator::GetMaxAccelCost(
   const VehicleMap& /*vehicles*/,
   double /*d_limit*/,
   double /*s_dot_limit*/) {
-  auto s_double_dot = helpers::GetDerivative(helpers::GetDerivative(
-    trajectory.s_coeffs));
+  ComputeTargetSDoubleDot(target_time, trajectory.s_coeffs);
   std::set<double> accels;
-  auto dt = target_time / N_SAMPLES;
-  for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * dt;
-    accels.insert(std::fabs(helpers::EvaluatePolynomial(s_double_dot, t)));
+  for (auto s_double_dot : target_s_double_dot_) {
+    accels.insert(std::fabs(s_double_dot));
   }
   return *accels.rbegin() > MAX_ACCEL ? 1 : 0;
 }
@@ -347,13 +316,10 @@ double TrajectoryEstimator::GetTotalAccelCost(
   const VehicleMap& /*vehicles*/,
   double /*d_limit*/,
   double /*s_dot_limit*/) {
-  auto s_double_dot = helpers::GetDerivative(helpers::GetDerivative(
-    trajectory.s_coeffs));
+  ComputeTargetSDoubleDot(target_time, trajectory.s_coeffs);
   auto total_accel = 0.;
-  auto dt = target_time / N_SAMPLES;
-  for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * dt;
-    total_accel += std::fabs(helpers::EvaluatePolynomial(s_double_dot, t) * dt);
+  for (auto s_double_dot : target_s_double_dot_) {
+    total_accel += std::fabs(s_double_dot * target_dt_);
   }
   auto accel_per_second = total_accel / target_time;
   return GetLogistic(accel_per_second / EXPECTED_ACCEL_IN_ONE_SEC);
@@ -367,13 +333,10 @@ double TrajectoryEstimator::GetMaxJerkCost(
   const VehicleMap& /*vehicles*/,
   double /*d_limit*/,
   double /*s_dot_limit*/) {
-  auto jerk = helpers::GetDerivative(helpers::GetDerivative(
-    helpers::GetDerivative(trajectory.s_coeffs)));
+  ComputeTargetJerk(target_time, trajectory.s_coeffs);
   std::set<double> jerks;
-  auto dt = target_time / N_SAMPLES;
-  for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * dt;
-    jerks.insert(std::fabs(helpers::EvaluatePolynomial(jerk, t)));
+  for (auto jerk : target_jerk_) {
+    jerks.insert(std::fabs(jerk));
   }
   return *jerks.rbegin() > MAX_JERK ? 1 : 0;
 }
@@ -386,14 +349,183 @@ double TrajectoryEstimator::GetTotalJerkCost(
   const VehicleMap& /*vehicles*/,
   double /*d_limit*/,
   double /*s_dot_limit*/) {
-  auto jerk = helpers::GetDerivative(helpers::GetDerivative(
-    helpers::GetDerivative(trajectory.s_coeffs)));
+  ComputeTargetJerk(target_time, trajectory.s_coeffs);
   auto total_jerk = 0.;
-  auto dt = target_time / N_SAMPLES;
-  for (auto i = 0; i < N_SAMPLES; ++i) {
-    auto t = static_cast<double>(i) * dt;
-    total_jerk += std::fabs(helpers::EvaluatePolynomial(jerk, t) * dt);
+  for (auto jerk : target_jerk_) {
+    total_jerk += std::fabs(jerk * target_dt_);
   }
   auto jerk_per_second = total_jerk / target_time;
   return GetLogistic(jerk_per_second / EXPECTED_JERK_IN_ONE_SEC);
+}
+
+// Private Methods
+// -----------------------------------------------------------------------------
+
+void TrajectoryEstimator::ComputeTrajectoryDt(double time) {
+  if (!is_trajectory_dt_computed_) {
+    trajectory_dt_ = time / N_SAMPLES;
+    is_trajectory_dt_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTargetDt(double time) {
+  if (!is_target_dt_computed_) {
+    target_dt_ = time / N_SAMPLES;
+    is_target_dt_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTrajectoryT(double time) {
+  if (!is_trajectory_t_computed_) {
+    ComputeTrajectoryDt(time);
+    for (auto i = 0; i < N_SAMPLES; ++i) {
+      trajectory_t_[i] = static_cast<double>(i) * trajectory_dt_;
+    }
+    is_trajectory_t_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTargetT(double time) {
+  if (!is_target_t_computed_) {
+    ComputeTargetDt(time);
+    for (auto i = 0; i < N_SAMPLES; ++i) {
+      target_t_[i] = static_cast<double>(i) * target_dt_;
+    }
+    is_target_t_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeSDotCoeffs(
+  const std::vector<double>& s_coeffs) {
+  if (!is_s_dot_coeffs_computed_) {
+    s_dot_coeffs_ = helpers::GetDerivative(s_coeffs);
+    is_s_dot_coeffs_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeSDoubleDotCoeffs(
+  const std::vector<double>& s_coeffs) {
+  if (!is_s_double_dot_coeffs_computed_) {
+    ComputeSDotCoeffs(s_coeffs);
+    s_double_dot_coeffs_ = helpers::GetDerivative(s_dot_coeffs_);
+    is_s_double_dot_coeffs_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeJerkCoeffs(
+  const std::vector<double>& s_coeffs) {
+  if (!is_jerk_coeffs_computed_) {
+    ComputeSDoubleDotCoeffs(s_coeffs);
+    jerk_coeffs_ = helpers::GetDerivative(s_double_dot_coeffs_);
+    is_jerk_coeffs_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTrajectoryS(
+  double time,
+  const std::vector<double>& s_coeffs) {
+  if (!is_trajectory_s_computed_) {
+    ComputeTrajectoryT(time);
+    for (auto i = 0; i < N_SAMPLES; ++i) {
+      trajectory_s_[i] = helpers::EvaluatePolynomial(s_coeffs,
+                                                     trajectory_t_[i]);
+    }
+    is_trajectory_s_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTrajectoryD(
+  double time,
+  const std::vector<double>& d_coeffs) {
+  if (!is_trajectory_d_computed_) {
+    ComputeTrajectoryT(time);
+    for (auto i = 0; i < N_SAMPLES; ++i) {
+      trajectory_d_[i] = helpers::EvaluatePolynomial(d_coeffs,
+                                                     trajectory_t_[i]);
+    }
+    is_trajectory_d_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTargetSDoubleDot(
+  double time,
+  const std::vector<double>& s_coeffs) {
+  if (!is_target_s_double_dot_computed_) {
+    ComputeTargetT(time);
+    ComputeSDoubleDotCoeffs(s_coeffs);
+    for (auto i = 0; i < N_SAMPLES; ++i) {
+      target_s_double_dot_[i] = helpers::EvaluatePolynomial(
+        s_double_dot_coeffs_, target_t_[i]);
+    }
+    is_target_s_double_dot_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTargetJerk(
+  double time,
+  const std::vector<double>& s_coeffs) {
+  if (!is_target_jerk_computed_) {
+    ComputeTargetT(time);
+    ComputeJerkCoeffs(s_coeffs);
+    for (auto i = 0; i < N_SAMPLES; ++i) {
+      target_jerk_[i] = helpers::EvaluatePolynomial(jerk_coeffs_, target_t_[i]);
+    }
+    is_target_jerk_computed_ = true;
+  }
+}
+
+// Calculates the closest distance to any vehicle during a trajectory.
+double TrajectoryEstimator::GetClosestDistanceToAnyVehicle(
+  const Vehicle::Trajectory& trajectory,
+  const VehicleMap& vehicles) {
+  auto vehicle_id = -1;
+  auto closest_distance = std::numeric_limits<double>::max();
+//  auto start = std::chrono::steady_clock::now();
+
+  // Don't take vehicles following the car into consideration.
+  VehicleMap vehicles_of_interest;
+  auto d0 = helpers::EvaluatePolynomial(trajectory.d_coeffs, 0);
+  for (const auto& v : vehicles) {
+    Vehicle::State vehicle_s0;
+    Vehicle::State vehicle_d0;
+    v.second.GetState(0, vehicle_s0, vehicle_d0);
+    if (std::fabs(d0 - vehicle_d0[0]) > VEHICLE_RADIUS
+        || vehicle_s0[0] > -VEHICLE_RADIUS) {
+      vehicles_of_interest.insert(v);
+    } else {
+//      std::cout << "Not interested in vehicle Id " << v.first << std::endl;
+    }
+  }
+
+//  auto dt = trajectory.time / N_SAMPLES;
+  ComputeTrajectoryS(trajectory.time, trajectory.s_coeffs);
+  ComputeTrajectoryD(trajectory.time, trajectory.d_coeffs);
+  for (auto i = 0; i < N_SAMPLES; ++i) {
+//    auto t = static_cast<double>(i) * dt;
+//    auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t);
+//    auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
+    for (const auto& v : vehicles_of_interest) {
+      Vehicle::State vehicle_s;
+      Vehicle::State vehicle_d;
+      v.second.GetState(trajectory_t_[i], vehicle_s, vehicle_d);
+      auto diff_s = trajectory_s_[i] - vehicle_s[0];
+      auto diff_d = trajectory_d_[i] - vehicle_d[0];
+      auto distance = std::sqrt(diff_s * diff_s + diff_d * diff_d);
+      if (distance < closest_distance) {
+        closest_distance = distance;
+        vehicle_id = v.first;
+      }
+    }
+  }
+
+//  auto stop = std::chrono::steady_clock::now();
+//  auto diff = stop - start;
+//  std::cout << "GetClosestDistanceToAnyVehicle completed in "
+//            << std::chrono::duration<double, std::milli>(diff).count()
+//            << " ms" << std::endl;
+//  if (closest_distance < 2. * VEHICLE_RADIUS) {
+//    std::cout << "Colliding with vehicle Id " << vehicle_id << ", distance "
+//              << closest_distance << std::endl;
+//  }
+  return closest_distance;
 }

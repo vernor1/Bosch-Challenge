@@ -2,6 +2,7 @@
 #define TRAJECTORYGENERATOR_H
 
 #include <random>
+#include "trajectory_estimator.h"
 #include "vehicle.h"
 
 class TrajectoryGenerator {
@@ -36,6 +37,7 @@ private:
   mutable std::normal_distribution<double> dist_d_;
   mutable std::normal_distribution<double> dist_d_dot_;
   mutable std::normal_distribution<double> dist_d_double_dot_;
+  mutable TrajectoryEstimator trajectory_estimator_;
 
   Vehicle::State PerturbS(const Vehicle::State& s) const;
   Vehicle::State PerturbD(const Vehicle::State& d) const;

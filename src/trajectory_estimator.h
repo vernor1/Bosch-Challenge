@@ -123,8 +123,45 @@ public:
                           double s_dot_limit);
 
 private:
+  bool is_trajectory_dt_computed_;
+  double trajectory_dt_;
+  bool is_target_dt_computed_;
+  double target_dt_;
+  bool is_trajectory_t_computed_;
+  std::vector<double> trajectory_t_;
+  bool is_target_t_computed_;
+  std::vector<double> target_t_;
+  bool is_s_dot_coeffs_computed_;
+  std::vector<double> s_dot_coeffs_;
+  bool is_s_double_dot_coeffs_computed_;
+  std::vector<double> s_double_dot_coeffs_;
+  bool is_jerk_coeffs_computed_;
+  std::vector<double> jerk_coeffs_;
+  bool is_trajectory_s_computed_;
+  std::vector<double> trajectory_s_;
+  bool is_trajectory_d_computed_;
+  std::vector<double> trajectory_d_;
+  bool is_target_s_double_dot_computed_;
+  std::vector<double> target_s_double_dot_;
+  bool is_target_jerk_computed_;
+  std::vector<double> target_jerk_;
   bool is_closest_distance_computed_;
   double closest_distance_;
+
+  inline void ComputeTrajectoryDt(double time);
+  inline void ComputeTargetDt(double time);
+  inline void ComputeTrajectoryT(double time);
+  inline void ComputeTargetT(double time);
+  inline void ComputeSDotCoeffs(const std::vector<double>& s_coeffs);
+  inline void ComputeSDoubleDotCoeffs(const std::vector<double>& s_coeffs);
+  inline void ComputeJerkCoeffs(const std::vector<double>& s_coeffs);
+  inline void ComputeTrajectoryS(double time, const std::vector<double>& s_coeffs);
+  inline void ComputeTrajectoryD(double time, const std::vector<double>& d_coeffs);
+  inline void ComputeTargetSDoubleDot(double time, const std::vector<double>& s_coeffs);
+  inline void ComputeTargetJerk(double time, const std::vector<double>& s_coeffs);
+
+  double GetClosestDistanceToAnyVehicle(const Vehicle::Trajectory& trajectory,
+                                        const VehicleMap& vehicles);
 };
 
 #endif // TRAJECTORYESTIMATOR_H
