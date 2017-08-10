@@ -173,20 +173,21 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
       best_trajectory = trajectory;
     }
   }
-/*
-  if (min_cost > 100) {
-    std::cout << "Something went wrong! The cost is too high: " << min_cost
-              << std::endl;
-  }
+
+//  if (min_cost > 100) {
+//    std::cout << "Something went wrong! The cost is too high: " << min_cost
+//              << std::endl;
+//  }
   std::cout << "Other trajectory costs:";
   for (const auto& c : all_costs) {
     std::cout << " " << c;
   }
   std::cout << std::endl;
-*/
+
   // Print out debug data.
-//  trajectory_estimator.GetCost(best_trajectory, target_s, target_d, target_time,
-//                               vehicles, d_limit, s_dot_limit, true);
+  trajectory_estimator_.GetCost(best_trajectory, target_s, target_d,
+                                target_time, vehicles, d_limit, s_dot_limit,
+                                true);
 /*
   auto stop = std::chrono::steady_clock::now();
   auto diff = stop - start;
