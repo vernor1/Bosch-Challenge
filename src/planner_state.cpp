@@ -216,7 +216,7 @@ double GetLaneSpeedCost(Lane lane,
   }
 
   if (vehicle_ahead == vehicles.end()
-      || vehicle_ahead->second.s > 2. * preferred_buffer
+      || vehicle_ahead->second.s > 4. * preferred_buffer
       || vehicle_ahead->second.s_dot > preferred_speed) {
     return 0;
   }
@@ -246,7 +246,7 @@ inline int GetTargetVehicleId(AdjacentVehicles::const_iterator vehicle_ahead,
                               double next_s,
                               double preferred_buffer) {
   if (vehicle_ahead != adjacent_vehicles.end()
-      && vehicle_ahead->second.s < next_s + preferred_buffer) {
+      && vehicle_ahead->second.s < next_s + 2. * preferred_buffer) {
     return vehicle_ahead->second.id;
   }
   return -1;
@@ -257,9 +257,9 @@ bool IsLaneChangeSafe(AdjacentVehicles::const_iterator vehicle_ahead,
                       const AdjacentVehicles& adjacent_vehicles,
                       double preferred_buffer) {
   return (vehicle_ahead == adjacent_vehicles.end()
-          || vehicle_ahead->second.s > preferred_buffer)
+          || vehicle_ahead->second.s > preferred_buffer / 2.)
       && (vehicle_behind == adjacent_vehicles.end()
-          || vehicle_behind->second.s < -preferred_buffer);
+          || vehicle_behind->second.s < -preferred_buffer / 4.);
 }
 
 // PlannerState

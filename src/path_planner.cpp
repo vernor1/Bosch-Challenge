@@ -24,9 +24,9 @@ auto kHalfLaneWidth = kLaneWidth / 2.;
 
 auto kRoadWidth = kLaneWidth * kNumberOfLanes;
 
-auto kPreferredBuffer = 40.;
+auto kPreferredBuffer = 20.;
 
-auto kPlanningTime = 3.;
+auto kPlanningTime = 2.;
 
 auto kTrajectoryTime = 1.;
 
@@ -158,7 +158,7 @@ void PathPlanner::Update(double current_x,
       next_x.push_back(cartesian.x);
       next_y.push_back(cartesian.y);
     }
-    std::cout << "Last planned s_dot " << previous_states_s_.back()[1]
+    std::cout << "Farthest planned s_dot " << previous_states_s_.back()[1]
               << std::endl;
   }
 
@@ -207,27 +207,55 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
     begin_s = {0, 0, 0};
     begin_d = {current_d, 0, 0};
   }
+  Vehicle::State target_d = {d, 0, 0};
 
   std::cout << "Generating trajectory for planning_time " << planning_time
             << ", begin_s ("
             << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"
             << ", begin_d ("
-            << begin_d[0] << "," << begin_d[1] << "," << begin_d[2] << ")";
-  Vehicle::State target_d = {d, 0, 0};
+            << begin_d[0] << "," << begin_d[1] << "," << begin_d[2] << ")"
+            << ", target_d ("
+            << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")";
   if (target_vehicle_id >= 0) {
     // Target vehicle is known, follow it.
-    auto target_vehicle = other_vehicles.find(target_vehicle_id);
-    assert(target_vehicle != other_vehicles.end());
-    Vehicle::State target_vehicle_s0;
-    Vehicle::State target_vehicle_d0;
     // TODO: Compute the planning time based on the speed and distance to other
     //       car.
-    target_vehicle->second.GetState(planning_time, target_vehicle_s0, target_vehicle_d0);
+    // f(x) = (x/(b*v^(2/3))-v^(1/3))^3+v, where v=20 and b=2
+    // f(x) = (x/(b*v^(2/3))-v^(1/3)-v/(4*b*v^(2/3)))^3+v, where v=20 and b=2
+    std::cout << ", target_vehicle_id " << target_vehicle_id;
+    auto target_vehicle = other_vehicles.find(target_vehicle_id);
+    // FIXME: target_vehicle_id can expire.
+    assert(target_vehicle != other_vehicles.end());
+    Vehicle::State target_vehicle_s;
+    Vehicle::State target_vehicle_d;
+    target_vehicle->second.GetState(0, target_vehicle_s, target_vehicle_d);
+    std::cout << ", target_vehicle_s (" << target_vehicle_s[0] << ","
+              << target_vehicle_s[1] << "," << target_vehicle_s[2] << ")";
+
+    auto ds = target_vehicle_s[0];
+    auto target_vehicle_speed = target_vehicle_s[1];
+    std::cout << ", ds " << ds << ", target_vehicle_speed " << target_vehicle_speed;
+    auto speed = std::pow(ds / (2. * std::pow(target_vehicle_speed, 2./3.))
+                          - std::cbrt(target_vehicle_speed), 3)
+                 + target_vehicle_speed;
+    auto target_speed = std::min(speed, kPreferredSpeed);
+
+    Vehicle::State target_s = {target_speed * planning_time,
+                               target_speed,
+                               0};
+    std::cout << ", target_s ("
+              << target_s[0] << "," << target_s[1] << "," << target_s[2] << ")"
+              << std::endl;
+    trajectory = trajectory_generator_.Generate(begin_s, begin_d,
+                                                target_s, target_d,
+                                                planning_time,
+                                                other_vehicles,
+                                                kRoadWidth, kSpeedLimit);
+
+/*
     Vehicle::State delta_s = {-kPreferredBuffer, 0, 0};
     std::cout << ", target_vehicle_id " << target_vehicle_id << ", delta_s ("
               << delta_s[0] << "," << delta_s[1] << "," << delta_s[2] << ")"
-              << ", target_d ("
-              << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")"
               << std::endl;
     trajectory = trajectory_generator_.Generate(begin_s, begin_d,
                                                 target_vehicle_id,
@@ -235,6 +263,32 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
                                                 planning_time,
                                                 other_vehicles,
                                                 kRoadWidth, kSpeedLimit);
+
+    auto target_vehicle = other_vehicles.find(target_vehicle_id);
+    assert(target_vehicle != other_vehicles.end());
+    Vehicle::State target_begin_s;
+    Vehicle::State target_begin_d;
+    target_vehicle->second.GetState(0, target_begin_s, target_begin_d);
+    Vehicle::State target_end_s;
+    Vehicle::State target_end_d;
+    target_vehicle->second.GetState(trajectory.time, target_end_s, target_end_d);
+    std::cout << "Target vehicle begin_s ("
+              << target_begin_s[0] << "," << target_begin_s[1] << "," << target_begin_s[2] << ")"
+              << ",  end_s (" << target_end_s[0] << "," << target_end_s[1] << "," << target_end_s[2] << ")";
+    auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
+    auto s_double_dot_coeffs = helpers::GetDerivative(s_dot_coeffs);
+    auto own_begin_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, 0);
+    auto own_begin_s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, 0);
+    auto own_begin_s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, 0);
+    auto own_end_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, trajectory.time);
+    auto own_end_s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, trajectory.time);
+    auto own_end_s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, trajectory.time);
+    std::cout << ", own begin_s ("
+              << own_begin_s << "," << own_begin_s_dot << "," << own_begin_s_double_dot << ")"
+              << ", end_s ("
+              << own_end_s << "," << own_end_s_dot << "," << own_end_s_double_dot << ")"
+              << std::endl;
+*/
   } else {
     // Target vehicle is unknown, free run at comfortable speed.
     Vehicle::State target_s = {kPreferredSpeed * planning_time,
@@ -242,8 +296,6 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
                                0};
     std::cout << ", target_s ("
               << target_s[0] << "," << target_s[1] << "," << target_s[2] << ")"
-              << ", target_d ("
-              << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")"
               << std::endl;
     trajectory = trajectory_generator_.Generate(begin_s, begin_d,
                                                 target_s, target_d,
