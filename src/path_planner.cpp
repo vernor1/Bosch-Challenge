@@ -36,8 +36,8 @@ PathPlanner::PathPlanner(const std::vector<double>& waypoints_x,
                          const std::vector<double>& /*waypoints_dx*/,
                          const std::vector<double>& /*waypoints_dy*/,
                          const std::vector<double>& waypoints_s,
-                         double max_s)
-  : coordinate_converter_(waypoints_x, waypoints_y, waypoints_s, max_s),
+                         double track_length)
+  : coordinate_converter_(waypoints_x, waypoints_y, waypoints_s, track_length),
     n_remaining_planned_points_() {
   // Empty.
 }

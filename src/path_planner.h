@@ -21,7 +21,7 @@ public:
               const std::vector<double>& waypoints_dx,
               const std::vector<double>& waypoints_dy,
               const std::vector<double>& waypoints_s,
-              double max_s);
+              double track_length);
 
   void Update(double current_x,
               double current_y,

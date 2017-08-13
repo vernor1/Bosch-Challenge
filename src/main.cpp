@@ -1,9 +1,9 @@
+#include <cmath>
 #include <fstream>
-#include <math.h>
-#include <uWS/uWS.h>
 #include <iostream>
 #include <vector>
 #include "json.hpp"
+#include "uWS/uWS.h"
 #include "path_planner.h"
 
 using namespace std::placeholders;
@@ -69,21 +69,17 @@ int main() {
   std::string line;
   while (std::getline(in_map_, line)) {
     std::istringstream iss(line);
-    double x;
-    double y;
-    float s;
-    float d_x;
-    float d_y;
-    iss >> x;
-    iss >> y;
-    iss >> s;
-    iss >> d_x;
-    iss >> d_y;
+    auto x = 0.;
+    auto y = 0.;
+    auto s = 0.;
+    auto dx = 0.;
+    auto dy = 0.;
+    iss >> x >> y >> s >> dx >> dy;
     map_waypoints_x.push_back(x);
     map_waypoints_y.push_back(y);
     map_waypoints_s.push_back(s);
-    map_waypoints_dx.push_back(d_x);
-    map_waypoints_dy.push_back(d_y);
+    map_waypoints_dx.push_back(dx);
+    map_waypoints_dy.push_back(dy);
   }
 
   PathPlanner path_planner(map_waypoints_x,

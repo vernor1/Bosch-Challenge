@@ -31,7 +31,7 @@ public:
   CoordinateConverter(const std::vector<double>& waypoints_x,
                       const std::vector<double>& waypoints_y,
                       const std::vector<double>& waypoints_s,
-                      double max_s);
+                      double track_length);
 
   Cartesian GetCartesian(double current_s, const Frenet& frenet);
 
@@ -45,20 +45,13 @@ private:
     double y;
   };
 
-//  std::vector<double> waypoints_x_;
-//  std::vector<double> waypoints_y_;
-//  std::vector<double> waypoints_s_;
+  double track_length_;
+  double half_track_length_;
   std::map<double, CartesianWaypoint> waypoints_map_;
   std::vector<std::size_t> current_waypoints_id_;
   tk::spline spline_x_;
   tk::spline spline_y_;
 
-  inline void AddWaypoint(
-    std::map<double, CartesianWaypoint>::const_iterator iter,
-    std::vector<std::size_t>& waypoints_id,
-    std::vector<double>& waypoints_s,
-    std::vector<double>& waypoints_x,
-    std::vector<double>& waypoints_y) const;
   void UpdateSplines(double current_s);
 };
 
