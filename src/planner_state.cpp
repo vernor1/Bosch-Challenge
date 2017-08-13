@@ -33,6 +33,8 @@ enum class Lane {
 
 auto kPreferredBufferTime = 2.;
 
+auto kStraightDDot = 0.5;
+
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
 
@@ -342,15 +344,17 @@ PlannerStateKeepingLane::PlannerStateKeepingLane(
 std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
   std::size_t n_lanes,
   double lane_width,
-  double current_speed,
+  Vehicle::State current_s,
+  Vehicle::State current_d,
   double preferred_speed,
   double next_t,
   double next_s,
-  double next_d,
   const VehicleMap& other_vehicles) {
-  std::cout << "PlannerStateKeepingLane: current_speed " << current_speed
-            << ", next_s " << next_s
-            << ", next_d " << next_d << std::endl;
+  std::cout << "PlannerStateKeepingLane: current s ("
+            << current_s[0] << "," << current_s[1] << "," << current_s[2]
+            << "), current_d ("
+            << current_d[0] << "," << current_d[1] << "," << current_d[2]
+            << ")" << std::endl;
 
   auto is_left_lane_available = target_lane_ > 0;
   auto is_right_lane_available = target_lane_ + 1 < n_lanes;
@@ -409,7 +413,7 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
     // Check only target lane and right lane.
     if (right_lane_cost < target_lane_cost) {
       if (IsLaneChangeSafe(vehicle_ahead_right_id, vehicle_behind_right_id,
-                           other_vehicles, current_speed)) {
+                           other_vehicles, current_s[1])) {
         target_lane_ += 1;
         target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_right_id,
                                                 other_vehicles,
@@ -424,7 +428,7 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
     // Check only target lane and left lane.
     if (left_lane_cost < target_lane_cost) {
       if (IsLaneChangeSafe(vehicle_ahead_left_id, vehicle_behind_left_id,
-                           other_vehicles, current_speed)) {
+                           other_vehicles, current_s[1])) {
         target_lane_ -= 1;
         target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_left_id,
                                                 other_vehicles,
@@ -439,7 +443,7 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
     // Check target, left, and right lanes.
     if (left_lane_cost < target_lane_cost && left_lane_cost < right_lane_cost) {
       if (IsLaneChangeSafe(vehicle_ahead_left_id, vehicle_behind_left_id,
-                           other_vehicles, current_speed)) {
+                           other_vehicles, current_s[1])) {
         target_lane_ -= 1;
         target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_left_id,
                                                 other_vehicles,
@@ -452,7 +456,7 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
     } else if (right_lane_cost < target_lane_cost
         && right_lane_cost < left_lane_cost) {
       if (IsLaneChangeSafe(vehicle_ahead_right_id, vehicle_behind_right_id,
-                           other_vehicles, current_speed)) {
+                           other_vehicles, current_s[1])) {
         target_lane_ += 1;
         target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_right_id,
                                                 other_vehicles,
@@ -480,17 +484,17 @@ PlannerStateChangingLaneLeft::PlannerStateChangingLaneLeft(
 std::shared_ptr<PlannerState> PlannerStateChangingLaneLeft::GetState(
   std::size_t n_lanes,
   double lane_width,
-  double current_speed,
+  Vehicle::State current_s,
+  Vehicle::State current_d,
   double preferred_speed,
   double next_t,
-  double next_s,
-  double next_d,
+  double /*next_s*/,
   const VehicleMap& other_vehicles) {
-  auto lane_number = GetLaneNumber(next_d, lane_width);
-  std::cout << "PlannerStateChangingLaneLeft: current_speed " << current_speed
-            << ", next_s " << next_s
-            << ", next_d " << next_d << std::endl;
-  if (lane_number == target_lane_) {
+  auto lane_number = GetLaneNumber(current_d[0], lane_width);
+  std::cout << "PlannerStateChangingLaneLeft: current_d ("
+            << current_d[0] << "," << current_d[1] << "," << current_d[2]
+            << ")" << std::endl;
+  if (lane_number == target_lane_ && std::fabs(current_d[1]) < kStraightDDot) {
     return std::shared_ptr<PlannerState>(new PlannerStateKeepingLane(*this));
   }
   return std::shared_ptr<PlannerState>();
@@ -508,17 +512,17 @@ PlannerStateChangingLaneRight::PlannerStateChangingLaneRight(
 std::shared_ptr<PlannerState> PlannerStateChangingLaneRight::GetState(
   std::size_t n_lanes,
   double lane_width,
-  double current_speed,
+  Vehicle::State current_s,
+  Vehicle::State current_d,
   double preferred_speed,
   double next_t,
-  double next_s,
-  double next_d,
+  double /*next_s*/,
   const VehicleMap& other_vehicles) {
-  auto lane_number = GetLaneNumber(next_d, lane_width);
-  std::cout << "PlannerStateChangingLaneRight: current_speed " << current_speed
-            << ", next_s " << next_s
-            << ", next_d " << next_d << std::endl;
-  if (lane_number == target_lane_) {
+  auto lane_number = GetLaneNumber(current_d[0], lane_width);
+  std::cout << "PlannerStateChangingLaneRight: current_d ("
+            << current_d[0] << "," << current_d[1] << "," << current_d[2]
+            << ")" << std::endl;
+  if (lane_number == target_lane_ && std::fabs(current_d[1]) < kStraightDDot) {
     return std::shared_ptr<PlannerState>(new PlannerStateKeepingLane(*this));
   }
   return std::shared_ptr<PlannerState>();

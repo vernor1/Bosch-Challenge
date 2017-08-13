@@ -336,12 +336,12 @@ double TrajectoryEstimator::GetSdiffCost(const Vehicle::Trajectory& trajectory,
   std::vector<std::vector<double>> polyAndDerivatives = {{trajectory.s_coeffs}};
   polyAndDerivatives.push_back(s_dot_coeffs_);
   polyAndDerivatives.push_back(s_double_dot_coeffs_);
-  assert(polyAndDerivatives.size() == Vehicle::STATE_ORDER);
+  assert(polyAndDerivatives.size() == Vehicle::kStateOrder);
   auto cost = 0.;
   for (std::size_t i = 0; i < polyAndDerivatives.size(); ++i) {
     auto diff = std::fabs(helpers::EvaluatePolynomial(
       polyAndDerivatives[i], trajectory.time) - target_s[i]);
-    cost += GetLogistic(diff / Vehicle::SIGMA_S[i]);
+    cost += GetLogistic(diff / Vehicle::kSigmaS[i]);
   }
 
   return cost;
@@ -358,12 +358,12 @@ double TrajectoryEstimator::GetDdiffCost(const Vehicle::Trajectory& trajectory,
   auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
   polyAndDerivatives.push_back(d_dot_coeffs);
   polyAndDerivatives.push_back(helpers::GetDerivative(d_dot_coeffs));
-  assert(polyAndDerivatives.size() == Vehicle::STATE_ORDER);
+  assert(polyAndDerivatives.size() == Vehicle::kStateOrder);
   auto cost = 0.;
   for (std::size_t i = 0; i < polyAndDerivatives.size(); ++i) {
     auto diff = std::fabs(helpers::EvaluatePolynomial(
       polyAndDerivatives[i], trajectory.time) - target_d[i]);
-    cost += GetLogistic(diff / Vehicle::SIGMA_D[i]);
+    cost += GetLogistic(diff / Vehicle::kSigmaD[i]);
   }
 
   return cost;

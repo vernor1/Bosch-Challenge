@@ -12,11 +12,11 @@ public:
   virtual std::shared_ptr<PlannerState> GetState(
     std::size_t n_lanes,
     double lane_width,
-    double current_speed,
+    Vehicle::State current_s,
+    Vehicle::State current_d,
     double preferred_speed,
     double next_t,
     double next_s,
-    double next_d,
     const VehicleMap& other_vehicles) = 0;
 
   virtual void GetTarget(int& target_vehicle_id,
@@ -34,11 +34,11 @@ public:
   std::shared_ptr<PlannerState> GetState(
     std::size_t n_lanes,
     double lane_width,
-    double current_speed,
+    Vehicle::State current_s,
+    Vehicle::State current_d,
     double preferred_speed,
     double next_t,
     double next_s,
-    double next_d,
     const VehicleMap& other_vehicles) final;
 };
 
@@ -49,11 +49,11 @@ public:
   std::shared_ptr<PlannerState> GetState(
     std::size_t n_lanes,
     double lane_width,
-    double current_speed,
+    Vehicle::State current_s,
+    Vehicle::State current_d,
     double preferred_speed,
     double next_t,
     double next_s,
-    double next_d,
     const VehicleMap& other_vehicles) final;
 };
 
@@ -64,11 +64,11 @@ public:
   std::shared_ptr<PlannerState> GetState(
     std::size_t n_lanes,
     double lane_width,
-    double current_speed,
+    Vehicle::State current_s,
+    Vehicle::State current_d,
     double preferred_speed,
     double next_t,
     double next_s,
-    double next_d,
     const VehicleMap& other_vehicles) final;
 };
 

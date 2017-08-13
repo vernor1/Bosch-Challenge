@@ -86,9 +86,14 @@ void PathPlanner::Update(double /*current_x*/,
       n_remaining_planned_points_ -= n_missing_points;
     }
 
-    auto nearest_s = !previous_states_s_.empty() ?
-                     previous_states_s_.front()[0] :current_s;
-    auto other_vehicles = coordinate_converter_.GetVehicles(nearest_s,
+    Vehicle::State nearest_s = !previous_states_s_.empty()
+                               ? previous_states_s_.front()
+                               : Vehicle::State{current_s, 0, 0};
+    Vehicle::State nearest_d = !previous_states_d_.empty()
+                               ? previous_states_d_.front()
+                               : Vehicle::State{current_d, 0, 0};
+
+    auto other_vehicles = coordinate_converter_.GetVehicles(nearest_s[0],
                                                             sensor_fusion);
 
     if (n_remaining_planned_points_ == 0) {
@@ -100,18 +105,15 @@ void PathPlanner::Update(double /*current_x*/,
       }
       // Dry-run the trajectory generator to determine next s and d.
       auto trajectory = GenerateTrajectory(current_d, other_vehicles);
-      auto current_speed = previous_states_s_.empty() ?
-                           0 : previous_states_s_.front()[1];
       auto t = static_cast<double>(GetMissingPoints()) * kSampleDuration;
       auto next_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t)
-                  + GetFarthestPlannedS(nearest_s) - nearest_s;
-      auto next_d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
+                  + GetFarthestPlannedS(nearest_s[0]) - nearest_s[0];
       auto new_planner_state = planner_state_->GetState(kNumberOfLanes,
                                                         kLaneWidth,
-                                                        current_speed,
+                                                        nearest_s, nearest_d,
                                                         kPreferredSpeed,
                                                         kTrajectoryTime,
-                                                        next_s, next_d,
+                                                        next_s,
                                                         other_vehicles);
       if (new_planner_state) {
         std::cout << "Planner state changed" << std::endl;
@@ -141,7 +143,7 @@ void PathPlanner::Update(double /*current_x*/,
     // Run full trajecrory generation.
     auto trajectory = GenerateTrajectory(current_d, other_vehicles);
 
-    auto farthest_planned_s = GetFarthestPlannedS(nearest_s);
+    auto farthest_planned_s = GetFarthestPlannedS(nearest_s[0]);
     for (auto i = 1; i < GetMissingPoints() + 1; ++i) {
       auto t = static_cast<double>(i) * kSampleDuration;
       auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
@@ -157,7 +159,7 @@ void PathPlanner::Update(double /*current_x*/,
       auto d_double_dot = helpers::EvaluatePolynomial(d_double_dot_coeffs, t);
       previous_states_s_.push_back({s, s_dot, s_double_dot});
       previous_states_d_.push_back({d, d_dot, d_double_dot});
-      auto cartesian = coordinate_converter_.GetCartesian(nearest_s, {s, d});
+      auto cartesian = coordinate_converter_.GetCartesian(nearest_s[0], {s, d});
       next_x.push_back(cartesian.x);
       next_y.push_back(cartesian.y);
     }

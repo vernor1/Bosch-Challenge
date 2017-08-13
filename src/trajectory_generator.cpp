@@ -27,8 +27,8 @@ std::vector<double> GetJmt(const Vehicle::State& begin,
                            const Vehicle::State& end,
                            double t)
 {
-  assert(begin.size() == Vehicle::Vehicle::STATE_ORDER);
-  assert(end.size() == Vehicle::Vehicle::STATE_ORDER);
+  assert(begin.size() == Vehicle::Vehicle::kStateOrder);
+  assert(end.size() == Vehicle::Vehicle::kStateOrder);
   auto t2 = t * t;
   auto t3 = t2 * t;
   auto t4 = t3 * t;
@@ -76,7 +76,7 @@ std::vector<Vehicle::Trajectory> GetGoalTrajectories(
 Vehicle::State GetTargetS(const Vehicle& target_vehicle,
                           double target_time,
                           const Vehicle::State& delta_s) {
-  assert(delta_s.size() == Vehicle::STATE_ORDER);
+  assert(delta_s.size() == Vehicle::kStateOrder);
   Vehicle::State target_s;
   Vehicle::State target_vehicle_s;
   Vehicle::State target_vehicle_d;
@@ -84,7 +84,7 @@ Vehicle::State GetTargetS(const Vehicle& target_vehicle,
   std::transform(target_vehicle_s.begin(), target_vehicle_s.end(),
                  delta_s.begin(),
                  std::back_inserter(target_s), std::plus<double>());
-  assert(target_s.size() == Vehicle::STATE_ORDER);
+  assert(target_s.size() == Vehicle::kStateOrder);
   return target_s;
 }
 
@@ -95,12 +95,12 @@ Vehicle::State GetTargetS(const Vehicle& target_vehicle,
 
 TrajectoryGenerator::TrajectoryGenerator()
   : rng_(random_device_()),
-    dist_s_(0, Vehicle::SIGMA_S[0]),
-    dist_s_dot_(0, Vehicle::SIGMA_S[1]),
-    dist_s_double_dot_(0, Vehicle::SIGMA_S[2]),
-    dist_d_(0, Vehicle::SIGMA_D[0]),
-    dist_d_dot_(0, Vehicle::SIGMA_D[1]),
-    dist_d_double_dot_(0, Vehicle::SIGMA_D[2]) {
+    dist_s_(0, Vehicle::kSigmaS[0]),
+    dist_s_dot_(0, Vehicle::kSigmaS[1]),
+    dist_s_double_dot_(0, Vehicle::kSigmaS[2]),
+    dist_d_(0, Vehicle::kSigmaD[0]),
+    dist_d_dot_(0, Vehicle::kSigmaD[1]),
+    dist_d_double_dot_(0, Vehicle::kSigmaD[2]) {
 }
 
 Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
@@ -245,14 +245,14 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
 // -----------------------------------------------------------------------------
 
 Vehicle::State TrajectoryGenerator::PerturbS(const Vehicle::State& s) const {
-  assert(s.size() == Vehicle::STATE_ORDER);
+  assert(s.size() == Vehicle::kStateOrder);
   return {s[0] + dist_s_(rng_),
           s[1] + dist_s_dot_(rng_),
           s[2] + dist_s_double_dot_(rng_)};
 }
 
 Vehicle::State TrajectoryGenerator::PerturbD(const Vehicle::State& d) const {
-  assert(d.size() == Vehicle::STATE_ORDER);
+  assert(d.size() == Vehicle::kStateOrder);
   return {d[0] + dist_d_(rng_),
           d[1] + dist_d_dot_(rng_),
           d[2] + dist_d_double_dot_(rng_)};

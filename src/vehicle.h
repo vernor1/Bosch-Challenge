@@ -12,9 +12,9 @@ public:
     std::vector<double> d_coeffs;
     double time;
   };
-  enum {STATE_ORDER = 3};
-  static const std::vector<double> SIGMA_S;
-  static const std::vector<double> SIGMA_D;
+  enum {kStateOrder = 3};
+  static const std::vector<double> kSigmaS;
+  static const std::vector<double> kSigmaD;
 
   Vehicle(const State& begin_s, const State& begin_d);
 
