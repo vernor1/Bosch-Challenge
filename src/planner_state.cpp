@@ -90,8 +90,10 @@ AdjacentVehicles GetAdjacentVehicles(
     v.second.GetState(next_t, vehicle_s, vehicle_d);
     auto lane = GetLaneNumber(vehicle_d[0], lane_width);
     std::cout << "Vehicle Id " << v.first
-              << ", s " << vehicle_s[0] << ", s_dot " << vehicle_s[1] << ", s_double_dot " << vehicle_s[2]
-              << ", d " << vehicle_d[0] << ", d_dot " << vehicle_d[1] << ", d_double_dot " << vehicle_d[2]
+              << ", s " << vehicle_s[0] << ", s_dot " << vehicle_s[1]
+              << ", s_double_dot " << vehicle_s[2]
+              << ", d " << vehicle_d[0] << ", d_dot " << vehicle_d[1]
+              << ", d_double_dot " << vehicle_d[2]
               << ", lane " << lane << std::endl;
     if (vehicle_s[0] > next_s) {
       // The other vehicle is ahead.
@@ -241,25 +243,64 @@ double GetLaneCost(Lane lane,
   return total_cost;
 }
 
-inline int GetTargetVehicleId(AdjacentVehicles::const_iterator vehicle_ahead,
-                              const AdjacentVehicles& adjacent_vehicles,
-                              double next_s,
-                              double preferred_buffer) {
-  if (vehicle_ahead != adjacent_vehicles.end()
-      && vehicle_ahead->second.s < next_s + 2. * preferred_buffer) {
-    return vehicle_ahead->second.id;
+int GetAdjacentVehicleId(const AdjacentVehicles& vehicles,
+                         AdjacentVehicleType type) {
+  auto vehicle = vehicles.find(type);
+  if (vehicle != vehicles.end()) {
+    return vehicle->second.id;
   }
   return -1;
 }
 
-bool IsLaneChangeSafe(AdjacentVehicles::const_iterator vehicle_ahead,
-                      AdjacentVehicles::const_iterator vehicle_behind,
-                      const AdjacentVehicles& adjacent_vehicles,
-                      double preferred_buffer) {
-  return (vehicle_ahead == adjacent_vehicles.end()
-          || vehicle_ahead->second.s > preferred_buffer / 2.)
-      && (vehicle_behind == adjacent_vehicles.end()
-          || vehicle_behind->second.s < -preferred_buffer / 4.);
+inline int GetTargetVehicleId(int vehicle_ahead_id,
+                              const VehicleMap& other_vehicles,
+                              double preferred_buffer) {
+  if (vehicle_ahead_id >= 0) {
+    auto vehicle_ahead = other_vehicles.find(vehicle_ahead_id);
+    assert(vehicle_ahead != other_vehicles.end());
+    Vehicle::State vehicle_s;
+    Vehicle::State vehicle_d;
+    vehicle_ahead->second.GetState(0, vehicle_s, vehicle_d);
+    if (vehicle_s[0] > 0 && vehicle_s[0] < 2. * preferred_buffer) {
+      return vehicle_ahead_id;
+    }
+  }
+  return -1;
+}
+
+inline bool IsLaneChangeSafe(int vehicle_ahead_id,
+                             int vehicle_behind_id,
+                             const VehicleMap& other_vehicles,
+                             double preferred_buffer) {
+  auto is_ahead_safe = false;
+  if (vehicle_ahead_id < 0) {
+    is_ahead_safe = true;
+  } else {
+    auto vehicle_ahead = other_vehicles.find(vehicle_ahead_id);
+    assert(vehicle_ahead != other_vehicles.end());
+    Vehicle::State vehicle_s;
+    Vehicle::State vehicle_d;
+    vehicle_ahead->second.GetState(0, vehicle_s, vehicle_d);
+    is_ahead_safe = vehicle_s[0] > 0 && vehicle_s[0] > preferred_buffer;
+  }
+
+  if (!is_ahead_safe) {
+    return false;
+  }
+
+  auto is_behind_safe = false;
+  if (vehicle_behind_id < 0) {
+    is_behind_safe = true;
+  } else {
+    auto vehicle_behind = other_vehicles.find(vehicle_behind_id);
+    assert(vehicle_behind != other_vehicles.end());
+    Vehicle::State vehicle_s;
+    Vehicle::State vehicle_d;
+    vehicle_behind->second.GetState(0, vehicle_s, vehicle_d);
+    is_behind_safe = vehicle_s[0] < 0 && vehicle_s[0] < -preferred_buffer;
+  }
+
+  return is_ahead_safe && is_behind_safe;
 }
 
 // PlannerState
@@ -320,24 +361,25 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
                                       preferred_buffer,
                                       preferred_speed,
                                       adjacent_vehicles);
-  auto vehicle_ahead = adjacent_vehicles.find(AdjacentVehicleType::kAhead);
-
   auto left_lane_cost = 0.;
   auto right_lane_cost = 0.;
-  auto vehicle_ahead_left = adjacent_vehicles.end();
-  auto vehicle_ahead_right = adjacent_vehicles.end();
-  auto vehicle_behind_left = adjacent_vehicles.end();
-  auto vehicle_behind_right = adjacent_vehicles.end();
+
+  auto vehicle_ahead_id = GetAdjacentVehicleId(
+    adjacent_vehicles, AdjacentVehicleType::kAhead);
+  auto vehicle_ahead_left_id = -1;
+  auto vehicle_ahead_right_id = -1;
+  auto vehicle_behind_left_id = -1;
+  auto vehicle_behind_right_id = -1;
   if (is_left_lane_available) {
     left_lane_cost = GetLaneCost(Lane::kLeft,
                                  target_lane_,
                                  preferred_buffer,
                                  preferred_speed,
                                  adjacent_vehicles);
-    vehicle_ahead_left = adjacent_vehicles.find(
-      AdjacentVehicleType::kAheadLeft);
-    vehicle_behind_left = adjacent_vehicles.find(
-      AdjacentVehicleType::kBehindLeft);
+    vehicle_ahead_left_id = GetAdjacentVehicleId(
+      adjacent_vehicles, AdjacentVehicleType::kAheadLeft);
+    vehicle_behind_left_id = GetAdjacentVehicleId(
+      adjacent_vehicles, AdjacentVehicleType::kBehindLeft);
   }
   if (is_right_lane_available) {
     right_lane_cost = GetLaneCost(Lane::kRight,
@@ -345,68 +387,71 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
                                   preferred_buffer,
                                   preferred_speed,
                                   adjacent_vehicles);
-    vehicle_ahead_right = adjacent_vehicles.find(
-      AdjacentVehicleType::kAheadRight);
-    vehicle_behind_right = adjacent_vehicles.find(
-      AdjacentVehicleType::kBehindRight);
+    vehicle_ahead_right_id = GetAdjacentVehicleId(
+      adjacent_vehicles, AdjacentVehicleType::kAheadRight);
+    vehicle_behind_right_id = GetAdjacentVehicleId(
+      adjacent_vehicles,  AdjacentVehicleType::kBehindRight);
   }
 
-  target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead,
-                                          adjacent_vehicles,
-                                          next_s,
+  target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_id,
+                                          other_vehicles,
                                           preferred_buffer);
   if (!is_left_lane_available) {
     // Check only target lane and right lane.
     if (right_lane_cost < target_lane_cost) {
-      if (IsLaneChangeSafe(vehicle_ahead_right, vehicle_behind_right,
-                           adjacent_vehicles, preferred_buffer)) {
+      if (IsLaneChangeSafe(vehicle_ahead_right_id, vehicle_behind_right_id,
+                           other_vehicles, preferred_buffer)) {
         target_lane_ += 1;
-        target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_right,
-                                                adjacent_vehicles,
-                                                next_s,
+        target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_right_id,
+                                                other_vehicles,
                                                 preferred_buffer);
         return std::shared_ptr<PlannerState>(
           new PlannerStateChangingLaneRight(*this));
+      } else {
+        std::cout << "Changing lane right is unsafe" << std::endl;
       }
     }
   } else if (!is_right_lane_available) {
     // Check only target lane and left lane.
     if (left_lane_cost < target_lane_cost) {
-      if (IsLaneChangeSafe(vehicle_ahead_left, vehicle_behind_left,
-                           adjacent_vehicles, preferred_buffer)) {
+      if (IsLaneChangeSafe(vehicle_ahead_left_id, vehicle_behind_left_id,
+                           other_vehicles, preferred_buffer)) {
         target_lane_ -= 1;
-        target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_left,
-                                                adjacent_vehicles,
-                                                next_s,
+        target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_left_id,
+                                                other_vehicles,
                                                 preferred_buffer);
         return std::shared_ptr<PlannerState>(
           new PlannerStateChangingLaneLeft(*this));
+      } else {
+        std::cout << "Changing lane left is unsafe" << std::endl;
       }
     }
   } else {
     // Check target, left, and right lanes.
     if (left_lane_cost < target_lane_cost && left_lane_cost < right_lane_cost) {
-      if (IsLaneChangeSafe(vehicle_ahead_left, vehicle_behind_left,
-                           adjacent_vehicles, preferred_buffer)) {
+      if (IsLaneChangeSafe(vehicle_ahead_left_id, vehicle_behind_left_id,
+                           other_vehicles, preferred_buffer)) {
         target_lane_ -= 1;
-        target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_left,
-                                                adjacent_vehicles,
-                                                next_s,
+        target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_left_id,
+                                                other_vehicles,
                                                 preferred_buffer);
         return std::shared_ptr<PlannerState>(
           new PlannerStateChangingLaneLeft(*this));
+      } else {
+        std::cout << "Changing lane left is unsafe" << std::endl;
       }
     } else if (right_lane_cost < target_lane_cost
         && right_lane_cost < left_lane_cost) {
-      if (IsLaneChangeSafe(vehicle_ahead_right, vehicle_behind_right,
-                           adjacent_vehicles, preferred_buffer)) {
+      if (IsLaneChangeSafe(vehicle_ahead_right_id, vehicle_behind_right_id,
+                           other_vehicles, preferred_buffer)) {
         target_lane_ += 1;
-        target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_right,
-                                                adjacent_vehicles,
-                                                next_s,
+        target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_right_id,
+                                                other_vehicles,
                                                 preferred_buffer);
         return std::shared_ptr<PlannerState>(
           new PlannerStateChangingLaneRight(*this));
+      } else {
+        std::cout << "Changing lane right is unsafe" << std::endl;
       }
     }
   }

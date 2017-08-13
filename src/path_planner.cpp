@@ -47,12 +47,12 @@ PathPlanner::PathPlanner(const std::vector<double>& waypoints_x,
   // Empty.
 }
 
-void PathPlanner::Update(double current_x,
-                         double current_y,
+void PathPlanner::Update(double /*current_x*/,
+                         double /*current_y*/,
                          double current_s,
                          double current_d,
-                         double current_yaw,
-                         double current_speed,
+                         double /*current_yaw*/,
+                         double /*current_speed*/,
                          const std::vector<double>& previous_path_x,
                          const std::vector<double>& previous_path_y,
                          double end_path_s,
@@ -116,6 +116,28 @@ void PathPlanner::Update(double current_x,
                                                         kTrajectoryTime,
                                                         next_s, next_d,
                                                         other_vehicles);
+/*
+      auto next_t = 5. * kSampleDuration;
+      auto next_s = 0.;
+      auto next_d = 0.;
+      if (previous_states_s_.size() < 5) {
+        // Run the trajectory generator to determine next s and d.
+        auto trajectory = GenerateTrajectory(current_d, other_vehicles);
+        next_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, next_t);
+        next_d = helpers::EvaluatePolynomial(trajectory.d_coeffs, next_t);
+      } else {
+        next_s = previous_states_s_[5 - 1][0];
+        next_d = previous_states_d_[5 - 1][0];
+      }
+      auto new_planner_state = planner_state_->GetState(kNumberOfLanes,
+                                                        kLaneWidth,
+                                                        kPreferredBuffer,
+                                                        kPreferredSpeed,
+                                                        next_t,
+                                                        next_s,
+                                                        next_d,
+                                                        other_vehicles);
+*/
       if (new_planner_state) {
         std::cout << "Planner state changed" << std::endl;
         planner_state_ = new_planner_state;

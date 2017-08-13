@@ -15,6 +15,14 @@ CoordinateConverter::CoordinateConverter(const std::vector<double>& waypoints_x,
   : waypoints_x_(waypoints_x),
     waypoints_y_(waypoints_y),
     waypoints_s_(waypoints_s) {
+  assert(waypoints_x.size() == waypoints_s.size());
+  assert(waypoints_y.size() == waypoints_s.size());
+  for (std::size_t i = 0; i < waypoints_s.size(); ++i) {
+    waypoints_map_.insert(
+      std::make_pair(waypoints_s[i],
+                     Cartesian{waypoints_x[i], waypoints_y[i]}));
+  }
+
   spline_x_.set_points(waypoints_s, waypoints_x);
   spline_y_.set_points(waypoints_s, waypoints_y);
 }
@@ -51,9 +59,11 @@ CoordinateConverter::Cartesian CoordinateConverter::GetCartesian(
 
 VehicleMap CoordinateConverter::GetVehicles(
   double current_s,
-  const std::vector<DetectedVehicle>& sensor_fusion) const {
-  VehicleMap vehicles;
+  const std::vector<DetectedVehicle>& sensor_fusion) {
 
+  UpdateSplines(current_s);
+
+  VehicleMap vehicles;
   for (const auto& sf : sensor_fusion) {
     if (sf.s > 0 && sf.d > 0) {
       auto cartesian_yaw = std::atan2(sf.vy, sf.vx);
@@ -66,11 +76,31 @@ VehicleMap CoordinateConverter::GetVehicles(
       auto cartesian_v = std::sqrt(sf.vx * sf.vx + sf.vy * sf.vy);
       auto vs = cartesian_v * std::cos(frenet_yaw);
       auto vd = cartesian_v * std::sin(frenet_yaw);
+      // NOTE: This simplistic conversion provides a rough estimate of the other
+      // car's s-coordinate, which cannot be directly used for following the
+      // car. This is because the current s-coord as well as the sensor fusion
+      // s-coords are provided by the simulator, which obtained them in an
+      // unknown way (perhaps by linear interpolation), while the own s,d-coords
+      // are computed out from the spline fitted over map coordinates. A better
+      // solution would be using sensor fusion x,y-coords and compute other
+      // car'ss,d-coords out from the fitted splines.
       vehicles.insert(std::make_pair(
         sf.id,
         Vehicle({sf.s - current_s, vs, 0}, {sf.d, vd, 0})));
     }
   }
-
   return vehicles;
+}
+
+// Private Methods
+// -----------------------------------------------------------------------------
+void CoordinateConverter::UpdateSplines(double current_s) {
+  std::cout << "current_s " << current_s << ", upper_bound ";
+  auto ub = waypoints_map_.upper_bound(current_s);
+  if (ub != waypoints_map_.end()) {
+    std::cout << ub->first;
+  } else {
+    std::cout << "not determined";
+  }
+  std::cout << std::endl;
 }

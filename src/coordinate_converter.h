@@ -1,6 +1,7 @@
 #ifndef COORDINATE_CONVERTER_H
 #define COORDINATE_CONVERTER_H
 
+#include <map>
 #include "spline.h"
 #include "vehicle.h"
 
@@ -34,16 +35,18 @@ public:
 
   Cartesian GetCartesian(const Frenet& frenet) const;
 
-  VehicleMap GetVehicles(
-    double current_s,
-    const std::vector<DetectedVehicle>& sensor_fusion) const;
+  VehicleMap GetVehicles(double current_s,
+                         const std::vector<DetectedVehicle>& sensor_fusion);
 
 private:
   std::vector<double> waypoints_x_;
   std::vector<double> waypoints_y_;
   std::vector<double> waypoints_s_;
+  std::map<double, Cartesian> waypoints_map_;
   tk::spline spline_x_;
   tk::spline spline_y_;
+
+  void UpdateSplines(double current_s);
 };
 
 #endif // COORDINATE_CONVERTER_H
