@@ -46,7 +46,7 @@ private:
 
   std::size_t GetMissingPoints() const;
   double GetPlanningTime() const;
-  double GetFarthestPlannedS(double current_s) const;
+  double GetFarthestPlannedS(double nearest_s) const;
   Vehicle::Trajectory GenerateTrajectory(
     double current_d,
     const VehicleMap& other_vehicles) const;

@@ -2,9 +2,6 @@
 #include <iostream>
 #include "helpers.h"
 
-// Local Types
-// -----------------------------------------------------------------------------
-
 // Local Constants
 // -----------------------------------------------------------------------------
 
@@ -89,8 +86,9 @@ void PathPlanner::Update(double /*current_x*/,
       n_remaining_planned_points_ -= n_missing_points;
     }
 
-    // TODO: Do the planning once a second.
-    auto other_vehicles = coordinate_converter_.GetVehicles(current_s,
+    auto nearest_s = !previous_states_s_.empty() ?
+                     previous_states_s_.front()[0] :current_s;
+    auto other_vehicles = coordinate_converter_.GetVehicles(nearest_s,
                                                             sensor_fusion);
 
     if (n_remaining_planned_points_ == 0) {
@@ -106,7 +104,7 @@ void PathPlanner::Update(double /*current_x*/,
                            0 : previous_states_s_.front()[1];
       auto t = static_cast<double>(GetMissingPoints()) * kSampleDuration;
       auto next_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t)
-                  + GetFarthestPlannedS(current_s) - current_s;
+                  + GetFarthestPlannedS(nearest_s) - nearest_s;
       auto next_d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
       auto new_planner_state = planner_state_->GetState(kNumberOfLanes,
                                                         kLaneWidth,
@@ -143,7 +141,7 @@ void PathPlanner::Update(double /*current_x*/,
     // Run full trajecrory generation.
     auto trajectory = GenerateTrajectory(current_d, other_vehicles);
 
-    auto farthest_planned_s = GetFarthestPlannedS(current_s);
+    auto farthest_planned_s = GetFarthestPlannedS(nearest_s);
     for (auto i = 1; i < GetMissingPoints() + 1; ++i) {
       auto t = static_cast<double>(i) * kSampleDuration;
       auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
@@ -159,7 +157,7 @@ void PathPlanner::Update(double /*current_x*/,
       auto d_double_dot = helpers::EvaluatePolynomial(d_double_dot_coeffs, t);
       previous_states_s_.push_back({s, s_dot, s_double_dot});
       previous_states_d_.push_back({d, d_dot, d_double_dot});
-      auto cartesian = coordinate_converter_.GetCartesian({s, d});
+      auto cartesian = coordinate_converter_.GetCartesian(nearest_s, {s, d});
       next_x.push_back(cartesian.x);
       next_y.push_back(cartesian.y);
     }
@@ -186,8 +184,8 @@ double PathPlanner::GetPlanningTime() const {
                                            * kSampleDuration;
 }
 
-double PathPlanner::GetFarthestPlannedS(double current_s) const {
-  return previous_states_s_.empty() ? current_s : previous_states_s_.back()[0];
+double PathPlanner::GetFarthestPlannedS(double nearest_s) const {
+  return !previous_states_s_.empty() ? previous_states_s_.back()[0] : nearest_s;
 }
 
 Vehicle::Trajectory PathPlanner::GenerateTrajectory(

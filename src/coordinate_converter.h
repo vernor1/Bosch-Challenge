@@ -33,19 +33,32 @@ public:
                       const std::vector<double>& waypoints_s,
                       double max_s);
 
-  Cartesian GetCartesian(const Frenet& frenet) const;
+  Cartesian GetCartesian(double current_s, const Frenet& frenet);
 
   VehicleMap GetVehicles(double current_s,
                          const std::vector<DetectedVehicle>& sensor_fusion);
 
 private:
-  std::vector<double> waypoints_x_;
-  std::vector<double> waypoints_y_;
-  std::vector<double> waypoints_s_;
-  std::map<double, Cartesian> waypoints_map_;
+  struct CartesianWaypoint {
+    std::size_t id;
+    double x;
+    double y;
+  };
+
+//  std::vector<double> waypoints_x_;
+//  std::vector<double> waypoints_y_;
+//  std::vector<double> waypoints_s_;
+  std::map<double, CartesianWaypoint> waypoints_map_;
+  std::vector<std::size_t> current_waypoints_id_;
   tk::spline spline_x_;
   tk::spline spline_y_;
 
+  inline void AddWaypoint(
+    std::map<double, CartesianWaypoint>::const_iterator iter,
+    std::vector<std::size_t>& waypoints_id,
+    std::vector<double>& waypoints_s,
+    std::vector<double>& waypoints_x,
+    std::vector<double>& waypoints_y) const;
   void UpdateSplines(double current_s);
 };
 
