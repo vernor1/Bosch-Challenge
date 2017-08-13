@@ -12,7 +12,7 @@ public:
   virtual std::shared_ptr<PlannerState> GetState(
     std::size_t n_lanes,
     double lane_width,
-    double preferred_buffer,
+    double current_speed,
     double preferred_speed,
     double next_t,
     double next_s,
@@ -34,7 +34,7 @@ public:
   std::shared_ptr<PlannerState> GetState(
     std::size_t n_lanes,
     double lane_width,
-    double preferred_buffer,
+    double current_speed,
     double preferred_speed,
     double next_t,
     double next_s,
@@ -49,7 +49,7 @@ public:
   std::shared_ptr<PlannerState> GetState(
     std::size_t n_lanes,
     double lane_width,
-    double preferred_buffer,
+    double current_speed,
     double preferred_speed,
     double next_t,
     double next_s,
@@ -64,7 +64,7 @@ public:
   std::shared_ptr<PlannerState> GetState(
     std::size_t n_lanes,
     double lane_width,
-    double preferred_buffer,
+    double current_speed,
     double preferred_speed,
     double next_t,
     double next_s,

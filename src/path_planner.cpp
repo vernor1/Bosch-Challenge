@@ -24,8 +24,6 @@ auto kHalfLaneWidth = kLaneWidth / 2.;
 
 auto kRoadWidth = kLaneWidth * kNumberOfLanes;
 
-auto kPreferredBuffer = 20.;
-
 auto kPlanningTime = 2.;
 
 auto kTrajectoryTime = 1.;
@@ -55,8 +53,8 @@ void PathPlanner::Update(double /*current_x*/,
                          double /*current_speed*/,
                          const std::vector<double>& previous_path_x,
                          const std::vector<double>& previous_path_y,
-                         double end_path_s,
-                         double end_path_d,
+                         double /*end_path_s*/,
+                         double /*end_path_d*/,
                          const std::vector<DetectedVehicle>& sensor_fusion,
                          ControlFunction control_function) {
   assert(previous_path_x.size() == previous_path_y.size());
@@ -104,49 +102,34 @@ void PathPlanner::Update(double /*current_x*/,
       }
       // Dry-run the trajectory generator to determine next s and d.
       auto trajectory = GenerateTrajectory(current_d, other_vehicles);
-
+      auto current_speed = previous_states_s_.empty() ?
+                           0 : previous_states_s_.front()[1];
       auto t = static_cast<double>(GetMissingPoints()) * kSampleDuration;
       auto next_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t)
                   + GetFarthestPlannedS(current_s) - current_s;
       auto next_d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
       auto new_planner_state = planner_state_->GetState(kNumberOfLanes,
                                                         kLaneWidth,
-                                                        kPreferredBuffer,
+                                                        current_speed,
                                                         kPreferredSpeed,
                                                         kTrajectoryTime,
                                                         next_s, next_d,
                                                         other_vehicles);
-/*
-      auto next_t = 5. * kSampleDuration;
-      auto next_s = 0.;
-      auto next_d = 0.;
-      if (previous_states_s_.size() < 5) {
-        // Run the trajectory generator to determine next s and d.
-        auto trajectory = GenerateTrajectory(current_d, other_vehicles);
-        next_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, next_t);
-        next_d = helpers::EvaluatePolynomial(trajectory.d_coeffs, next_t);
-      } else {
-        next_s = previous_states_s_[5 - 1][0];
-        next_d = previous_states_d_[5 - 1][0];
-      }
-      auto new_planner_state = planner_state_->GetState(kNumberOfLanes,
-                                                        kLaneWidth,
-                                                        kPreferredBuffer,
-                                                        kPreferredSpeed,
-                                                        next_t,
-                                                        next_s,
-                                                        next_d,
-                                                        other_vehicles);
-*/
       if (new_planner_state) {
         std::cout << "Planner state changed" << std::endl;
-        planner_state_ = new_planner_state;
-        if (previous_states_s_.size() > 10) {
-          previous_states_s_.erase(previous_states_s_.begin() + 10,
-                                   previous_states_s_.end());
-          previous_states_d_.erase(previous_states_d_.begin() + 10,
-                                   previous_states_d_.end());
+        if (dynamic_cast<PlannerStateChangingLaneLeft*>(
+              new_planner_state.get())
+            || dynamic_cast<PlannerStateChangingLaneRight*>(
+                 new_planner_state.get())) {
+          // Perform the safe maneuver as soon as possible.
+          if (previous_states_s_.size() > 10) {
+            previous_states_s_.erase(previous_states_s_.begin() + 10,
+                                     previous_states_s_.end());
+            previous_states_d_.erase(previous_states_d_.begin() + 10,
+                                     previous_states_d_.end());
+          }
         }
+        planner_state_ = new_planner_state;
       }
     }
 
@@ -229,6 +212,7 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
     begin_s = {0, 0, 0};
     begin_d = {current_d, 0, 0};
   }
+  Vehicle::State target_s;
   Vehicle::State target_d = {d, 0, 0};
 
   std::cout << "Generating trajectory for planning_time " << planning_time
@@ -238,16 +222,14 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
             << begin_d[0] << "," << begin_d[1] << "," << begin_d[2] << ")"
             << ", target_d ("
             << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")";
-  if (target_vehicle_id >= 0) {
+  auto target_vehicle = other_vehicles.find(target_vehicle_id);
+  if (target_vehicle_id >= 0 && target_vehicle != other_vehicles.end()) {
     // Target vehicle is known, follow it.
     // TODO: Compute the planning time based on the speed and distance to other
     //       car.
     // f(x) = (x/(b*v^(2/3))-v^(1/3))^3+v, where v=20 and b=2
     // f(x) = (x/(b*v^(2/3))-v^(1/3)-v/(4*b*v^(2/3)))^3+v, where v=20 and b=2
     std::cout << ", target_vehicle_id " << target_vehicle_id;
-    auto target_vehicle = other_vehicles.find(target_vehicle_id);
-    // FIXME: target_vehicle_id can expire.
-    assert(target_vehicle != other_vehicles.end());
     Vehicle::State target_vehicle_s;
     Vehicle::State target_vehicle_d;
     target_vehicle->second.GetState(0, target_vehicle_s, target_vehicle_d);
@@ -262,68 +244,20 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
                  + target_vehicle_speed;
     auto target_speed = std::min(speed, kPreferredSpeed);
 
-    Vehicle::State target_s = {target_speed * planning_time,
-                               target_speed,
-                               0};
+    target_s = {target_speed * planning_time, target_speed,0};
     std::cout << ", target_s ("
               << target_s[0] << "," << target_s[1] << "," << target_s[2] << ")"
               << std::endl;
-    trajectory = trajectory_generator_.Generate(begin_s, begin_d,
-                                                target_s, target_d,
-                                                planning_time,
-                                                other_vehicles,
-                                                kRoadWidth, kSpeedLimit);
-
-/*
-    Vehicle::State delta_s = {-kPreferredBuffer, 0, 0};
-    std::cout << ", target_vehicle_id " << target_vehicle_id << ", delta_s ("
-              << delta_s[0] << "," << delta_s[1] << "," << delta_s[2] << ")"
-              << std::endl;
-    trajectory = trajectory_generator_.Generate(begin_s, begin_d,
-                                                target_vehicle_id,
-                                                delta_s, target_d,
-                                                planning_time,
-                                                other_vehicles,
-                                                kRoadWidth, kSpeedLimit);
-
-    auto target_vehicle = other_vehicles.find(target_vehicle_id);
-    assert(target_vehicle != other_vehicles.end());
-    Vehicle::State target_begin_s;
-    Vehicle::State target_begin_d;
-    target_vehicle->second.GetState(0, target_begin_s, target_begin_d);
-    Vehicle::State target_end_s;
-    Vehicle::State target_end_d;
-    target_vehicle->second.GetState(trajectory.time, target_end_s, target_end_d);
-    std::cout << "Target vehicle begin_s ("
-              << target_begin_s[0] << "," << target_begin_s[1] << "," << target_begin_s[2] << ")"
-              << ",  end_s (" << target_end_s[0] << "," << target_end_s[1] << "," << target_end_s[2] << ")";
-    auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
-    auto s_double_dot_coeffs = helpers::GetDerivative(s_dot_coeffs);
-    auto own_begin_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, 0);
-    auto own_begin_s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, 0);
-    auto own_begin_s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, 0);
-    auto own_end_s = helpers::EvaluatePolynomial(trajectory.s_coeffs, trajectory.time);
-    auto own_end_s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, trajectory.time);
-    auto own_end_s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, trajectory.time);
-    std::cout << ", own begin_s ("
-              << own_begin_s << "," << own_begin_s_dot << "," << own_begin_s_double_dot << ")"
-              << ", end_s ("
-              << own_end_s << "," << own_end_s_dot << "," << own_end_s_double_dot << ")"
-              << std::endl;
-*/
   } else {
     // Target vehicle is unknown, free run at comfortable speed.
-    Vehicle::State target_s = {kPreferredSpeed * planning_time,
-                               kPreferredSpeed,
-                               0};
+    target_s = {kPreferredSpeed * planning_time, kPreferredSpeed, 0};
     std::cout << ", target_s ("
               << target_s[0] << "," << target_s[1] << "," << target_s[2] << ")"
               << std::endl;
-    trajectory = trajectory_generator_.Generate(begin_s, begin_d,
-                                                target_s, target_d,
-                                                planning_time,
-                                                other_vehicles,
-                                                kRoadWidth, kSpeedLimit);
   }
-  return trajectory;
+  return trajectory_generator_.Generate(begin_s, begin_d,
+                                        target_s, target_d,
+                                        planning_time,
+                                        other_vehicles,
+                                        kRoadWidth, kSpeedLimit);
 }
