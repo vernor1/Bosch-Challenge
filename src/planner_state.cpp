@@ -225,7 +225,7 @@ double GetLaneSpeedCost(Lane lane,
   }
 
   if (vehicle_ahead == vehicles.end()
-      || vehicle_ahead->second.s > 2. * preferred_buffer
+      || vehicle_ahead->second.s > 3. * preferred_buffer
       || vehicle_ahead->second.s_dot > preferred_speed) {
     return 0;
   }

@@ -79,7 +79,6 @@ void PathPlanner::Update(double /*current_x*/,
     next_x.assign(previous_path_x.begin(), previous_path_x.end());
     next_y.assign(previous_path_y.begin(), previous_path_y.end());
   } else {
-    std::cout << "Initial nr of missing points " << n_missing_points << std::endl;
     // Generate new path points.
     if (n_missing_points > n_remaining_planned_points_) {
       n_remaining_planned_points_ = 0;
@@ -126,45 +125,21 @@ void PathPlanner::Update(double /*current_x*/,
 
     // Run full trajecrory generation.
     auto trajectory = GenerateTrajectory(current_d, other_vehicles);
-    auto n_missing_points = GetMissingPoints();
-    std::cout << "Final nr of missing points " << n_missing_points << std::endl;
 
     // Reuse next points.
     std::size_t n_reused_points = previous_states_s_.size();
-    std::cout << "Nr of reused points " << n_reused_points << std::endl;
     next_x.assign(previous_path_x.begin(),
                   previous_path_x.begin() + n_reused_points);
     next_y.assign(previous_path_y.begin(),
                   previous_path_y.begin() + n_reused_points);
-    std::cout << "Intermediate nr of next points " << next_x.size() << std::endl;
 
-    // Generate new next points and update previous states.
-    auto farthest_planned_s = GetFarthestPlannedS(nearest_s[0]);
-    for (auto i = 1; i < n_missing_points + 1; ++i) {
-      auto t = static_cast<double>(i) * kSampleDuration;
-      auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
-      auto s_double_dot_coeffs = helpers::GetDerivative(s_dot_coeffs);
-      auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
-      auto d_double_dot_coeffs = helpers::GetDerivative(d_dot_coeffs);
-      auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t)
-             + farthest_planned_s;
-      auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, t);
-      auto s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, t);
-      auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
-      auto d_dot = helpers::EvaluatePolynomial(d_dot_coeffs, t);
-      auto d_double_dot = helpers::EvaluatePolynomial(d_double_dot_coeffs, t);
-      previous_states_s_.push_back({s, s_dot, s_double_dot});
-      previous_states_d_.push_back({d, d_dot, d_double_dot});
-      auto cartesian = coordinate_converter_.GetCartesian(nearest_s[0], {s, d});
-      next_x.push_back(cartesian.x);
-      next_y.push_back(cartesian.y);
-    }
+    // Add missing next points.
+    AddNextPoints(trajectory, nearest_s, next_x, next_y);
     std::cout << "Farthest planned s_dot " << previous_states_s_.back()[1]
               << std::endl;
   }
 
   if (!next_x.empty()) {
-    std::cout << "Final nr of next points " << next_x.size() << std::endl;
     // Control the simulator.
     control_function(next_x, next_y);
   }
@@ -176,11 +151,7 @@ void PathPlanner::Update(double /*current_x*/,
 std::size_t PathPlanner::GetMissingPoints() const {
   return kNumberOfPathPoints - previous_states_s_.size();
 }
-/*
-double PathPlanner::GetMissingTrajectoryTime() const {
-  static_cast<double>(GetMissingPoints()) * kSampleDuration;
-}
-*/
+
 double PathPlanner::GetPlanningTime() const {
   return kPlanningTime - kTrajectoryTime
          + static_cast<double>(GetMissingPoints()) * kSampleDuration;
@@ -288,4 +259,32 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
                                         planning_time,
                                         other_vehicles,
                                         kRoadWidth, kSpeedLimit);
+}
+
+void PathPlanner::AddNextPoints(const Vehicle::Trajectory& trajectory,
+                                const Vehicle::State& nearest_s,
+                                std::vector<double>& next_x,
+                                std::vector<double>& next_y) {
+  auto n_missing_points = GetMissingPoints();
+  auto farthest_planned_s = GetFarthestPlannedS(nearest_s[0]);
+  // Generate new next points and update previous states.
+  for (auto i = 1; i < n_missing_points + 1; ++i) {
+    auto t = static_cast<double>(i) * kSampleDuration;
+    auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
+    auto s_double_dot_coeffs = helpers::GetDerivative(s_dot_coeffs);
+    auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
+    auto d_double_dot_coeffs = helpers::GetDerivative(d_dot_coeffs);
+    auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t)
+           + farthest_planned_s;
+    auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, t);
+    auto s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, t);
+    auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
+    auto d_dot = helpers::EvaluatePolynomial(d_dot_coeffs, t);
+    auto d_double_dot = helpers::EvaluatePolynomial(d_double_dot_coeffs, t);
+    previous_states_s_.push_back({s, s_dot, s_double_dot});
+    previous_states_d_.push_back({d, d_dot, d_double_dot});
+    auto cartesian = coordinate_converter_.GetCartesian(nearest_s[0], {s, d});
+    next_x.push_back(cartesian.x);
+    next_y.push_back(cartesian.y);
+  }
 }

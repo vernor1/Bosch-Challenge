@@ -55,6 +55,10 @@ private:
                                  Vehicle::State& begin_d) const;
   Vehicle::Trajectory GenerateTrajectory(double current_d,
                                          const VehicleMap& other_vehicles);
+  void AddNextPoints(const Vehicle::Trajectory& trajectory,
+                     const Vehicle::State& nearest_s,
+                     std::vector<double>& next_x,
+                     std::vector<double>& next_y);
 };
 
 #endif // PATHPLANNER_H

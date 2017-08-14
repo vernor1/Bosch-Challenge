@@ -16,13 +16,13 @@ namespace {
 const auto kVehicleRadius = 1.5;
 
 // m/s/s
-const auto kMaxAccel = 10.;
+const auto kMaxAccel = 9.;
 
 // m/s
 const auto kExpectedAccelInOneSec = 1.;
 
 // m/s/s/s
-const auto kMaxJerk = 10.;
+const auto kMaxJerk = 9.;
 
 // m/s/s
 const auto kExpectedJerkInOneSec = 2.;
