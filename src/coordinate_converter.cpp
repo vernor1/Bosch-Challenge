@@ -2,10 +2,14 @@
 #include <cmath>
 #include <iostream>
 
+namespace {
+
 // Local Constants
 // -----------------------------------------------------------------------------
 
 auto kSensingRange = 300.;
+
+} // namespace
 
 // Public Methods
 // -----------------------------------------------------------------------------

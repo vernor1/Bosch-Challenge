@@ -2,6 +2,8 @@
 #include <iostream>
 #include "helpers.h"
 
+namespace {
+
 // Local Constants
 // -----------------------------------------------------------------------------
 
@@ -10,6 +12,10 @@ enum {kNumberOfPathPoints = 50};
 auto kSampleDuration = 0.02;
 
 auto kPreferredSpeed = 20.;
+
+auto kPreferredBufferTime = 3.;
+
+auto kPreferredDistance = kPreferredSpeed * kPreferredBufferTime;
 
 auto kSpeedLimit = 22.35;
 
@@ -25,8 +31,7 @@ auto kPlanningTime = 2.;
 
 auto kTrajectoryTime = 1.;
 
-// Local Helper-Functions
-// -----------------------------------------------------------------------------
+} // namespace
 
 // Public Methods
 // -----------------------------------------------------------------------------
@@ -135,7 +140,9 @@ void PathPlanner::Update(double /*current_x*/,
 
     // Add missing next points.
     AddNextPoints(trajectory, nearest_s, next_x, next_y);
-    std::cout << "Farthest planned s_dot " << previous_states_s_.back()[1]
+    auto farthest_planned_s = previous_states_s_.back();
+    std::cout << "Farthest planned s (" << farthest_planned_s[0] << ","
+              << farthest_planned_s[1] << "," << farthest_planned_s[2] << ")"
               << std::endl;
   }
 
@@ -209,6 +216,8 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
 
   auto planning_time = GetPlanningTime();
   auto target_vehicle = other_vehicles.find(target_vehicle_id);
+  Vehicle::State begin_s;
+  Vehicle::State begin_d;
   Vehicle::State target_s;
   std::cout << "Generating trajectory";
   if (target_vehicle_id >= 0 && target_vehicle != other_vehicles.end()) {
@@ -225,25 +234,33 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
               << target_vehicle_s0[1] << "," << target_vehicle_s0[2] << ")";
 
     auto ds = target_vehicle_s0[0];
-    auto target_vehicle_speed = target_vehicle_s0[1];
-    std::cout << ", ds " << ds << ", target_vehicle_speed " << target_vehicle_speed;
-    auto speed = std::pow(ds / (3. * std::pow(target_vehicle_speed, 2./3.))
-                          - std::cbrt(target_vehicle_speed), 3)
-                 + target_vehicle_speed;
-    auto target_speed = std::min(speed, kPreferredSpeed);
-    // Disacard all previous states to be able to react on sudden speed changes
-    // of the other vehicle.
-    DiscardPreviousStates();
-    planning_time = GetPlanningTime();
+    std::cout << ", ds " << ds;
+    auto target_speed = kPreferredSpeed;
+    if (ds < kPreferredDistance) {
+      auto target_vehicle_speed = target_vehicle_s0[1];
+      std::cout << ", target_vehicle_speed " << target_vehicle_speed;
+      std::cout << ", ds " << ds << ", target_vehicle_speed " << target_vehicle_speed;
+      auto speed = std::pow(ds / (kPreferredBufferTime * std::pow(target_vehicle_speed, 2./3.))
+                            - std::cbrt(target_vehicle_speed), 3)
+                   + target_vehicle_speed;
+      target_speed = std::min(speed, kPreferredSpeed);
+      // Disacard all previous states to be able to react on sudden speed
+      // changes of the other vehicle.
+      DiscardPreviousStates();
+      planning_time = GetPlanningTime();
+    }
     target_s = {target_speed * planning_time, target_speed, 0};
+    GetTrajectoryBegin(current_d, begin_s, begin_d);
   } else {
     // Target vehicle is unknown, free run at comfortable speed.
-    target_s = {kPreferredSpeed * planning_time, kPreferredSpeed, 0};
+    GetTrajectoryBegin(current_d, begin_s, begin_d);
+    // TODO: Define the constant.
+    auto feasible_target_speed = std::min(kPreferredSpeed,
+                                          begin_s[1] + 5. * planning_time);
+//    std::cout << "feasible_target_speed " << feasible_target_speed << std::endl;
+    target_s = {feasible_target_speed * planning_time, feasible_target_speed, 0};
   }
 
-  Vehicle::State begin_s;
-  Vehicle::State begin_d;
-  GetTrajectoryBegin(current_d, begin_s, begin_d);
   Vehicle::State target_d = {d, 0, 0};
   std::cout << ", begin_s ("
             << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"

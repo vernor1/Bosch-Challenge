@@ -2,6 +2,8 @@
 #include <cassert>
 #include <iostream>
 
+namespace {
+
 // Local Types
 // -----------------------------------------------------------------------------
 
@@ -33,7 +35,7 @@ enum class Lane {
 
 auto kPreferredBufferTime = 2.;
 
-auto kStraightDDot = 0.5;
+auto kStraightDDot = 0.3;
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -312,6 +314,8 @@ inline bool IsLaneChangeSafe(int vehicle_ahead_id,
   return is_ahead_safe && is_behind_safe;
 }
 
+} // namespace
+
 // PlannerState
 // -----------------------------------------------------------------------------
 
@@ -491,10 +495,11 @@ std::shared_ptr<PlannerState> PlannerStateChangingLaneLeft::GetState(
   double /*next_s*/,
   const VehicleMap& other_vehicles) {
   auto lane_number = GetLaneNumber(current_d[0], lane_width);
-  std::cout << "PlannerStateChangingLaneLeft: current_d ("
+  std::cout << "PlannerStateChangingLaneLeft: current_s ("
+            << current_s[0] << "," << current_s[1] << "," << current_s[2]
+            << ", current_d ("
             << current_d[0] << "," << current_d[1] << "," << current_d[2]
             << ")" << std::endl;
-  // TODO: Update target vehicle Id.
   if (lane_number == target_lane_ && std::fabs(current_d[1]) < kStraightDDot) {
     return std::shared_ptr<PlannerState>(new PlannerStateKeepingLane(*this));
   }
@@ -520,10 +525,11 @@ std::shared_ptr<PlannerState> PlannerStateChangingLaneRight::GetState(
   double /*next_s*/,
   const VehicleMap& other_vehicles) {
   auto lane_number = GetLaneNumber(current_d[0], lane_width);
-  std::cout << "PlannerStateChangingLaneRight: current_d ("
+  std::cout << "PlannerStateChangingLaneRight: current_s ("
+            << current_s[0] << "," << current_s[1] << "," << current_s[2]
+            << ", current_d ("
             << current_d[0] << "," << current_d[1] << "," << current_d[2]
             << ")" << std::endl;
-  // TODO: Update target vehicle Id.
   if (lane_number == target_lane_ && std::fabs(current_d[1]) < kStraightDDot) {
     return std::shared_ptr<PlannerState>(new PlannerStateKeepingLane(*this));
   }

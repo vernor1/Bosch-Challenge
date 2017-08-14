@@ -2,7 +2,6 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
-#include <set>
 #include "helpers.h"
 
 using namespace std::placeholders;
@@ -464,11 +463,14 @@ double TrajectoryEstimator::GetMaxAccelCost(
   double /*d_limit*/,
   double /*s_dot_limit*/) {
   ComputeTargetSDoubleDot(target_time, trajectory.s_coeffs);
-  std::set<double> accels;
+  auto max_accel = 0.;
   for (auto s_double_dot : target_s_double_dot_) {
-    accels.insert(std::fabs(s_double_dot));
+    auto abs_accel = std::fabs(s_double_dot);
+    if (abs_accel > max_accel) {
+      max_accel = abs_accel;
+    }
   }
-  return *accels.rbegin() > kMaxAccel ? 1 : 0;
+  return max_accel > kMaxAccel ? 1 : 0;
 }
 
 double TrajectoryEstimator::GetTotalAccelCost(
@@ -497,11 +499,14 @@ double TrajectoryEstimator::GetMaxJerkCost(
   double /*d_limit*/,
   double /*s_dot_limit*/) {
   ComputeTargetJerk(target_time, trajectory.s_coeffs);
-  std::set<double> jerks;
+  auto max_jerk = 0.;
   for (auto jerk : target_jerk_) {
-    jerks.insert(std::fabs(jerk));
+    auto abs_jerk = std::fabs(jerk);
+    if (abs_jerk > max_jerk) {
+      max_jerk = abs_jerk;
+    }
   }
-  return *jerks.rbegin() > kMaxJerk ? 1 : 0;
+  return max_jerk > kMaxJerk ? 1 : 0;
 }
 
 double TrajectoryEstimator::GetTotalJerkCost(
