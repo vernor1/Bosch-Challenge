@@ -256,7 +256,7 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
     GetTrajectoryBegin(current_d, begin_s, begin_d);
     // TODO: Define the constant.
     auto feasible_target_speed = std::min(kPreferredSpeed,
-                                          begin_s[1] + 5. * planning_time);
+                                          begin_s[1] + 1. * planning_time);
 //    std::cout << "feasible_target_speed " << feasible_target_speed << std::endl;
     target_s = {feasible_target_speed * planning_time, feasible_target_speed, 0};
   }

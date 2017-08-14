@@ -173,9 +173,9 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
 //  std::cout << std::endl;
 
   // Print out debug data.
-//  trajectory_estimator_.GetCost(best_trajectory, target_s, target_d,
-//                                target_time, vehicles, d_limit, s_dot_limit,
-//                                true);
+  trajectory_estimator_.GetCost(best_trajectory, target_s, target_d,
+                                target_time, vehicles, d_limit, s_dot_limit,
+                                true);
 /*
   auto stop = std::chrono::steady_clock::now();
   auto diff = stop - start;

@@ -15,16 +15,22 @@ namespace {
 const auto kVehicleRadius = 1.5;
 
 // m/s/s
-const auto kMaxAccel = 9.;
+const auto kMaxSAccel = 7.;
+
+// m/s/s
+const auto kMaxDAccel = 3.;
+
+// m/s/s
+const auto kMaxTotalAccel = 7.;
 
 // m/s
-const auto kExpectedAccelInOneSec = 1.;
+const auto kExpectedAccelInOneSec = 7.;
 
 // m/s/s/s
 const auto kMaxJerk = 9.;
 
 // m/s/s
-const auto kExpectedJerkInOneSec = 2.;
+const auto kExpectedJerkInOneSec = 9.;
 
 enum {kNumberOfSamples = 100};
 
@@ -45,26 +51,30 @@ const std::vector<TrajectoryEstimator::WeightedCostFunction>
                              _1, _2, _3, _4, _5, _6, _7, _8)},
   {"Sdiff", 1, std::bind(&TrajectoryEstimator::GetSdiffCost,
                          _1, _2, _3, _4, _5, _6, _7, _8)},
-  {"Ddiff", 100, std::bind(&TrajectoryEstimator::GetDdiffCost,
+  {"Ddiff", 10, std::bind(&TrajectoryEstimator::GetDdiffCost,
                            _1, _2, _3, _4, _5, _6, _7, _8)},
-  {"Collision", 100, std::bind(&TrajectoryEstimator::GetCollisionCost,
-                               _1, _2, _3, _4, _5, _6, _7, _8)},
-  {"Buffer", 100, std::bind(&TrajectoryEstimator::GetBufferCost,
-                            _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"Collision", 1, std::bind(&TrajectoryEstimator::GetCollisionCost,
+                             _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"Buffer", 1, std::bind(&TrajectoryEstimator::GetBufferCost,
+                          _1, _2, _3, _4, _5, _6, _7, _8)},
   {"OffRoad", 1000, std::bind(&TrajectoryEstimator::GetOffRoadCost,
                               _1, _2, _3, _4, _5, _6, _7, _8)},
   {"Speeding", 1000, std::bind(&TrajectoryEstimator::GetSpeedingCost,
                                _1, _2, _3, _4, _5, _6, _7, _8)},
-  {"Efficiency", 800, std::bind(&TrajectoryEstimator::GetEfficiencyCost,
+  {"Efficiency", 700, std::bind(&TrajectoryEstimator::GetEfficiencyCost,
                                 _1, _2, _3, _4, _5, _6, _7, _8)},
-  {"MaxAccel", 1000, std::bind(&TrajectoryEstimator::GetMaxAccelCost,
-                               _1, _2, _3, _4, _5, _6, _7, _8)},
-  {"TotalAccel", 10, std::bind(&TrajectoryEstimator::GetTotalAccelCost,
-                               _1, _2, _3, _4, _5, _6, _7, _8)},
-  {"MaxJerk", 1000, std::bind(&TrajectoryEstimator::GetMaxJerkCost,
-                              _1, _2, _3, _4, _5, _6, _7, _8)},
-  {"TotalJerk", 10, std::bind(&TrajectoryEstimator::GetTotalJerkCost,
-                              _1, _2, _3, _4, _5, _6, _7, _8)}};
+//  {"MaxSAccel", 1000, std::bind(&TrajectoryEstimator::GetMaxSAccelCost,
+//                               _1, _2, _3, _4, _5, _6, _7, _8)},
+//  {"MaxDAccel", 500, std::bind(&TrajectoryEstimator::GetMaxDAccelCost,
+//                               _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"MaxTotalAccel", 500, std::bind(&TrajectoryEstimator::GetMaxTotalAccelCost,
+                                   _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"TotalAccel", 500, std::bind(&TrajectoryEstimator::GetTotalAccelCost,
+                                _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"MaxJerk", 500, std::bind(&TrajectoryEstimator::GetMaxJerkCost,
+                             _1, _2, _3, _4, _5, _6, _7, _8)},
+  {"TotalJerk", 500, std::bind(&TrajectoryEstimator::GetTotalJerkCost,
+                               _1, _2, _3, _4, _5, _6, _7, _8)}};
 
 // Public Methods
 // -----------------------------------------------------------------------------
@@ -76,13 +86,17 @@ TrajectoryEstimator::TrajectoryEstimator()
     is_target_t_computed_(),
     target_t_(kNumberOfSamples),
     is_s_dot_coeffs_computed_(),
+    is_d_dot_coeffs_computed_(),
     is_s_double_dot_coeffs_computed_(),
+    is_d_double_dot_coeffs_computed_(),
     is_trajectory_s_computed_(),
     trajectory_s_(kNumberOfSamples),
     is_trajectory_d_computed_(),
     trajectory_d_(kNumberOfSamples),
     is_target_s_double_dot_computed_(),
     target_s_double_dot_(kNumberOfSamples),
+    is_target_d_double_dot_computed_(),
+    target_d_double_dot_(kNumberOfSamples),
     is_target_jerk_computed_(),
     target_jerk_(kNumberOfSamples),
     is_closest_distance_computed_() {
@@ -100,10 +114,13 @@ double TrajectoryEstimator::GetCost(const Vehicle::Trajectory& trajectory,
   is_trajectory_t_computed_ = false;
   is_target_t_computed_ = false;
   is_s_dot_coeffs_computed_ = false;
+  is_d_dot_coeffs_computed_ = false;
   is_s_double_dot_coeffs_computed_ = false;
+  is_d_double_dot_coeffs_computed_ = false;
   is_trajectory_s_computed_ = false;
   is_trajectory_d_computed_ = false;
   is_target_s_double_dot_computed_ = false;
+  is_target_d_double_dot_computed_ = false;
   is_target_jerk_computed_ = false;
   is_closest_distance_computed_ = false;
   auto cost = 0.;
@@ -141,10 +158,13 @@ double TrajectoryEstimator::GetCost(const std::string& costFunctionName,
   is_trajectory_t_computed_ = false;
   is_target_t_computed_ = false;
   is_s_dot_coeffs_computed_ = false;
+  is_d_dot_coeffs_computed_ = false;
   is_s_double_dot_coeffs_computed_ = false;
+  is_d_double_dot_coeffs_computed_ = false;
   is_trajectory_s_computed_ = false;
   is_trajectory_d_computed_ = false;
   is_target_s_double_dot_computed_ = false;
+  is_target_d_double_dot_computed_ = false;
   is_target_jerk_computed_ = false;
   is_closest_distance_computed_ = false;
   for (const auto& wcf : kWeightedCostFunctions) {
@@ -194,12 +214,29 @@ void TrajectoryEstimator::ComputeSDotCoeffs(
   }
 }
 
+void TrajectoryEstimator::ComputeDDotCoeffs(
+  const std::vector<double>& d_coeffs) {
+  if (!is_d_dot_coeffs_computed_) {
+    d_dot_coeffs_ = helpers::GetDerivative(d_coeffs);
+    is_d_dot_coeffs_computed_ = true;
+  }
+}
+
 void TrajectoryEstimator::ComputeSDoubleDotCoeffs(
   const std::vector<double>& s_coeffs) {
   if (!is_s_double_dot_coeffs_computed_) {
     ComputeSDotCoeffs(s_coeffs);
     s_double_dot_coeffs_ = helpers::GetDerivative(s_dot_coeffs_);
     is_s_double_dot_coeffs_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeDDoubleDotCoeffs(
+  const std::vector<double>& d_coeffs) {
+  if (!is_d_double_dot_coeffs_computed_) {
+    ComputeDDotCoeffs(d_coeffs);
+    d_double_dot_coeffs_ = helpers::GetDerivative(d_dot_coeffs_);
+    is_d_double_dot_coeffs_computed_ = true;
   }
 }
 
@@ -240,6 +277,20 @@ void TrajectoryEstimator::ComputeTargetSDoubleDot(
         s_double_dot_coeffs_, target_t_[i]);
     }
     is_target_s_double_dot_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTargetDDoubleDot(
+  double time,
+  const std::vector<double>& d_coeffs) {
+  if (!is_target_d_double_dot_computed_) {
+    ComputeTargetT(time);
+    ComputeDDoubleDotCoeffs(d_coeffs);
+    for (auto i = 0; i < kNumberOfSamples; ++i) {
+      target_d_double_dot_[i] = helpers::EvaluatePolynomial(
+        d_double_dot_coeffs_, target_t_[i]);
+    }
+    is_target_d_double_dot_computed_ = true;
   }
 }
 
@@ -454,7 +505,7 @@ double TrajectoryEstimator::GetEfficiencyCost(
   return GetLogistic(2. * (target_s[1] - avg_v) / avg_v);
 }
 
-double TrajectoryEstimator::GetMaxAccelCost(
+double TrajectoryEstimator::GetMaxSAccelCost(
   const Vehicle::Trajectory& trajectory,
   const Vehicle::State& /*target_s*/,
   const Vehicle::State& /*target_d*/,
@@ -470,7 +521,48 @@ double TrajectoryEstimator::GetMaxAccelCost(
       max_accel = abs_accel;
     }
   }
-  return max_accel > kMaxAccel ? 1 : 0;
+  return max_accel > kMaxSAccel ? 1 : 0;
+}
+
+double TrajectoryEstimator::GetMaxDAccelCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double target_time,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
+  ComputeTargetDDoubleDot(target_time, trajectory.d_coeffs);
+  auto max_accel = 0.;
+  for (auto d_double_dot : target_d_double_dot_) {
+    auto abs_accel = std::fabs(d_double_dot);
+    if (abs_accel > max_accel) {
+      max_accel = abs_accel;
+    }
+  }
+  return max_accel > kMaxDAccel ? 1 : 0;
+}
+
+double TrajectoryEstimator::GetMaxTotalAccelCost(
+  const Vehicle::Trajectory& trajectory,
+  const Vehicle::State& /*target_s*/,
+  const Vehicle::State& /*target_d*/,
+  double target_time,
+  const VehicleMap& /*vehicles*/,
+  double /*d_limit*/,
+  double /*s_dot_limit*/) {
+  ComputeTargetSDoubleDot(target_time, trajectory.s_coeffs);
+  ComputeTargetDDoubleDot(target_time, trajectory.d_coeffs);
+  assert(target_s_double_dot_.size() == target_d_double_dot_.size());
+  auto max_accel = 0.;
+  for (std::size_t i = 0; i < target_s_double_dot_.size(); ++i) {
+    auto abs_accel = std::fabs(target_s_double_dot_[i])
+                   + std::fabs(target_d_double_dot_[i]);
+    if (abs_accel > max_accel) {
+      max_accel = abs_accel;
+    }
+  }
+  return max_accel > kMaxTotalAccel ? 1 : 0;
 }
 
 double TrajectoryEstimator::GetTotalAccelCost(
@@ -482,9 +574,12 @@ double TrajectoryEstimator::GetTotalAccelCost(
   double /*d_limit*/,
   double /*s_dot_limit*/) {
   ComputeTargetSDoubleDot(target_time, trajectory.s_coeffs);
+//  ComputeTargetDDoubleDot(target_time, trajectory.d_coeffs);
+//  assert(target_s_double_dot_.size() == target_d_double_dot_.size());
   auto total_accel = 0.;
-  for (auto s_double_dot : target_s_double_dot_) {
-    total_accel += std::fabs(s_double_dot * target_dt_);
+  for (std::size_t i = 0; i < target_s_double_dot_.size(); ++i) {
+    total_accel += std::fabs(target_s_double_dot_[i] * target_dt_);
+//                 + std::fabs(target_d_double_dot_[i] * target_dt_);
   }
   auto accel_per_second = total_accel / target_time;
   return GetLogistic(accel_per_second / kExpectedAccelInOneSec);

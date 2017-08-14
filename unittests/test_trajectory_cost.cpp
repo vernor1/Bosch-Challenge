@@ -198,19 +198,19 @@ TEST(TrajectoryEstimator, GetBufferCost) {
   EXPECT_NEAR(8.21378211245, cost * 10., 1e-3);
 }
 
-TEST(TrajectoryEstimator, MaxAccelCost) {
+TEST(TrajectoryEstimator, MaxSAccelCost) {
   TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator.GetCost("MaxAccel", BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("MaxSAccel", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0., cost * 10, 1e-3);
 
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator.GetCost("MaxAccel", COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("MaxSAccel", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0., cost * 10, 1e-3);
 }

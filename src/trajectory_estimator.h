@@ -52,14 +52,20 @@ private:
   std::vector<double> target_t_;
   bool is_s_dot_coeffs_computed_;
   std::vector<double> s_dot_coeffs_;
+  bool is_d_dot_coeffs_computed_;
+  std::vector<double> d_dot_coeffs_;
   bool is_s_double_dot_coeffs_computed_;
   std::vector<double> s_double_dot_coeffs_;
+  bool is_d_double_dot_coeffs_computed_;
+  std::vector<double> d_double_dot_coeffs_;
   bool is_trajectory_s_computed_;
   std::vector<double> trajectory_s_;
   bool is_trajectory_d_computed_;
   std::vector<double> trajectory_d_;
   bool is_target_s_double_dot_computed_;
   std::vector<double> target_s_double_dot_;
+  bool is_target_d_double_dot_computed_;
+  std::vector<double> target_d_double_dot_;
   bool is_target_jerk_computed_;
   std::vector<double> target_jerk_;
   bool is_closest_distance_computed_;
@@ -69,10 +75,13 @@ private:
   void ComputeTrajectoryT(double time);
   void ComputeTargetT(double time);
   void ComputeSDotCoeffs(const std::vector<double>& s_coeffs);
+  void ComputeDDotCoeffs(const std::vector<double>& d_coeffs);
   void ComputeSDoubleDotCoeffs(const std::vector<double>& s_coeffs);
+  void ComputeDDoubleDotCoeffs(const std::vector<double>& d_coeffs);
   void ComputeTrajectoryS(double time, const std::vector<double>& s_coeffs);
   void ComputeTrajectoryD(double time, const std::vector<double>& d_coeffs);
   void ComputeTargetSDoubleDot(double time, const std::vector<double>& s_coeffs);
+  void ComputeTargetDDoubleDot(double time, const std::vector<double>& d_coeffs);
   void ComputeTargetJerk(double time, const std::vector<double>& s_coeffs);
   double GetClosestDistanceToAnyVehicle(const Vehicle::Trajectory& trajectory,
                                         const VehicleMap& vehicles);
@@ -150,13 +159,29 @@ private:
                            double d_limit,
                            double s_dot_limit);
 
-  double GetMaxAccelCost(const Vehicle::Trajectory& trajectory,
-                         const Vehicle::State& target_s,
-                         const Vehicle::State& target_d,
-                         double target_time,
-                         const VehicleMap& vehicles,
-                         double d_limit,
-                         double s_dot_limit);
+  double GetMaxSAccelCost(const Vehicle::Trajectory& trajectory,
+                          const Vehicle::State& target_s,
+                          const Vehicle::State& target_d,
+                          double target_time,
+                          const VehicleMap& vehicles,
+                          double d_limit,
+                          double s_dot_limit);
+
+  double GetMaxDAccelCost(const Vehicle::Trajectory& trajectory,
+                          const Vehicle::State& target_s,
+                          const Vehicle::State& target_d,
+                          double target_time,
+                          const VehicleMap& vehicles,
+                          double d_limit,
+                          double s_dot_limit);
+
+  double GetMaxTotalAccelCost(const Vehicle::Trajectory& trajectory,
+                              const Vehicle::State& target_s,
+                              const Vehicle::State& target_d,
+                              double target_time,
+                              const VehicleMap& vehicles,
+                              double d_limit,
+                              double s_dot_limit);
 
   double GetTotalAccelCost(const Vehicle::Trajectory& trajectory,
                            const Vehicle::State& target_s,
