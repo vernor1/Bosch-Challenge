@@ -494,6 +494,7 @@ std::shared_ptr<PlannerState> PlannerStateChangingLaneLeft::GetState(
   std::cout << "PlannerStateChangingLaneLeft: current_d ("
             << current_d[0] << "," << current_d[1] << "," << current_d[2]
             << ")" << std::endl;
+  // TODO: Update target vehicle Id.
   if (lane_number == target_lane_ && std::fabs(current_d[1]) < kStraightDDot) {
     return std::shared_ptr<PlannerState>(new PlannerStateKeepingLane(*this));
   }
@@ -522,6 +523,7 @@ std::shared_ptr<PlannerState> PlannerStateChangingLaneRight::GetState(
   std::cout << "PlannerStateChangingLaneRight: current_d ("
             << current_d[0] << "," << current_d[1] << "," << current_d[2]
             << ")" << std::endl;
+  // TODO: Update target vehicle Id.
   if (lane_number == target_lane_ && std::fabs(current_d[1]) < kStraightDDot) {
     return std::shared_ptr<PlannerState>(new PlannerStateKeepingLane(*this));
   }

@@ -44,12 +44,17 @@ private:
   std::deque<Vehicle::State> previous_states_d_;
   std::size_t n_remaining_planned_points_;
 
-  std::size_t GetMissingPoints() const;
-  double GetPlanningTime() const;
-  double GetFarthestPlannedS(double nearest_s) const;
-  Vehicle::Trajectory GenerateTrajectory(
-    double current_d,
-    const VehicleMap& other_vehicles) const;
+  inline std::size_t GetMissingPoints() const;
+  inline double GetPlanningTime() const;
+  inline Vehicle::State GetNearestS(double current_s) const;
+  inline Vehicle::State GetNearestD(double current_d) const;
+  inline double GetFarthestPlannedS(double nearest_s) const;
+  inline void DiscardPreviousStates();
+  inline void GetTrajectoryBegin(double current_d,
+                                 Vehicle::State& begin_s,
+                                 Vehicle::State& begin_d) const;
+  Vehicle::Trajectory GenerateTrajectory(double current_d,
+                                         const VehicleMap& other_vehicles);
 };
 
 #endif // PATHPLANNER_H
