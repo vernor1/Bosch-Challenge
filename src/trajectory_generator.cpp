@@ -1,6 +1,5 @@
 #include "trajectory_generator.h"
 #include <iostream>
-#include <set>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 
@@ -18,7 +17,14 @@ struct Goal {
 // Local Constants
 // -----------------------------------------------------------------------------
 
-enum {N_SAMPLES = 10};
+// Number of perturbed goal samples.
+enum {kNumberOfSamples = 10};
+
+// Timestep of target times.
+auto kTargetTimestep = 0.5;
+
+// Span of the target time.
+auto kTargetTimespan = 4. * kTargetTimestep;
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -101,42 +107,26 @@ TrajectoryGenerator::TrajectoryGenerator()
     dist_d_(0, Vehicle::kSigmaD[0]),
     dist_d_dot_(0, Vehicle::kSigmaD[1]),
     dist_d_double_dot_(0, Vehicle::kSigmaD[2]) {
+  // Empty.
 }
 
-Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
-                                                  const Vehicle::State& begin_d,
-                                                  const Vehicle::State& target_s,
-                                                  const Vehicle::State& target_d,
-                                                  double target_time,
-                                                  const VehicleMap& vehicles,
-                                                  double d_limit,
-                                                  double s_dot_limit) const {
-//  auto start = std::chrono::steady_clock::now();
-/*
-  std::cout << "Generating trajectory for begin_s ("
-            << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"
-            << ", begin_d ("
-            << begin_d[0] << "," << begin_d[1] << "," << begin_d[2] << ")"
-            << ", target_s ("
-            << target_s[0] << "," << target_s[1] << "," << target_s[2] << ")"
-            << ", target_d ("
-            << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")"
-            << ", target_time " << target_time
-            << ", d_limit " << d_limit
-            << ", s_dot_limit " << s_dot_limit
-            << std::endl;
-*/
-  // TODO: Replace with constant.
-  auto timestep = 0.5;
-
+Vehicle::Trajectory TrajectoryGenerator::Generate(
+  const Vehicle::State& begin_s,
+  const Vehicle::State& begin_d,
+  const Vehicle::State& target_s,
+  const Vehicle::State& target_d,
+  double target_time,
+  const VehicleMap& vehicles,
+  double d_limit,
+  double s_dot_limit) const {
   // Generate alternative goals.
   std::vector<Goal> all_goals;
-  for (auto t = target_time - 4. * timestep; t <= target_time + 4. * timestep;
-      t += timestep) {
+  for (auto t = target_time - kTargetTimespan;
+       t <= target_time + kTargetTimespan; t += kTargetTimestep) {
     Goal base_goal{target_s, target_d, t};
     std::vector<Goal> goals;
     goals.push_back(base_goal);
-    for (auto i = 0; i < N_SAMPLES; ++i) {
+    for (auto i = 0; i < kNumberOfSamples; ++i) {
       Goal perturbed_goal;
       perturbed_goal.time = t;
       perturbed_goal.s = PerturbS(base_goal.s);
@@ -149,65 +139,48 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   // Find best trajectory.
   auto trajectories = GetGoalTrajectories(begin_s, begin_d, all_goals);
   auto min_cost = std::numeric_limits<double>::max();
-
-  // TODO: Remove it.
-  std::set<double> all_costs;
   Vehicle::Trajectory best_trajectory;
   for (const auto& trajectory : trajectories) {
     auto cost = trajectory_estimator_.GetCost(trajectory,
                                               target_s, target_d,
                                               target_time, vehicles,
                                               d_limit, s_dot_limit);
-    all_costs.insert(cost);
-
     if (cost < min_cost) {
       min_cost = cost;
       best_trajectory = trajectory;
     }
   }
 
-//  std::cout << "Other trajectory costs:";
-//  for (const auto& c : all_costs) {
-//    std::cout << " " << c;
-//  }
-//  std::cout << std::endl;
-
   // Print out debug data.
-  trajectory_estimator_.GetCost(best_trajectory, target_s, target_d,
-                                target_time, vehicles, d_limit, s_dot_limit,
-                                true);
-/*
-  auto stop = std::chrono::steady_clock::now();
-  auto diff = stop - start;
-  std::cout << "Generate completed in "
-            << std::chrono::duration<double, std::milli>(diff).count()
-            << " ms" << std::endl;
-*/
+  //trajectory_estimator_.GetCost(best_trajectory, target_s, target_d,
+  //                              target_time, vehicles, d_limit, s_dot_limit,
+  //                              true);
+
   return best_trajectory;
 }
 
-Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
-                                                  const Vehicle::State& begin_d,
-                                                  std::size_t target_vehicle_id,
-                                                  const Vehicle::State& delta_s,
-                                                  const Vehicle::State& target_d,
-                                                  double target_time,
-                                                  const VehicleMap& vehicles,
-                                                  double d_limit,
-                                                  double s_dot_limit) const {
+Vehicle::Trajectory TrajectoryGenerator::Generate(
+  const Vehicle::State& begin_s,
+  const Vehicle::State& begin_d,
+  std::size_t target_vehicle_id,
+  const Vehicle::State& delta_s,
+  const Vehicle::State& target_d,
+  double target_time,
+  const VehicleMap& vehicles,
+  double d_limit,
+  double s_dot_limit) const {
+  // Find target vehicle.
   auto target_vehicle = vehicles.at(target_vehicle_id);
 
   // Generate alternative goals.
   std::vector<Goal> all_goals;
-  // TODO: Replace with constant.
-  auto timestep = 0.5;
-  for (auto t = target_time - 4. * timestep; t <= target_time + 4. * timestep;
-      t += timestep) {
+  for (auto t = target_time - kTargetTimespan;
+       t <= target_time + kTargetTimespan; t += kTargetTimestep) {
     auto target_s = GetTargetS(target_vehicle, t, delta_s);
     Goal base_goal{target_s, target_d, t};
     std::vector<Goal> goals;
     goals.push_back(base_goal);
-    for (auto i = 0; i < N_SAMPLES; ++i) {
+    for (auto i = 0; i < kNumberOfSamples; ++i) {
       Goal perturbed_goal;
       perturbed_goal.time = t;
       perturbed_goal.s = PerturbS(base_goal.s);
@@ -234,9 +207,9 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(const Vehicle::State& begin_s,
   }
 
   // Print out debug data.
-//  auto target_s = GetTargetS(target_vehicle, best_trajectory.time, delta_s);
-//  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
-//                d_limit, s_dot_limit, true);
+  //  auto target_s = GetTargetS(target_vehicle, best_trajectory.time, delta_s);
+  //  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
+  //                d_limit, s_dot_limit, true);
 
   return best_trajectory;
 }

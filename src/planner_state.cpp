@@ -35,6 +35,7 @@ enum class Lane {
 
 auto kPreferredBufferTime = 2.;
 
+// Laterral acceleration (d_dot) when driving straight [m/s/s] 
 auto kStraightDDot = 0.3;
 
 // Local Helper-Functions

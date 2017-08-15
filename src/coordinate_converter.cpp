@@ -7,6 +7,7 @@ namespace {
 // Local Constants
 // -----------------------------------------------------------------------------
 
+// Observed sensing range [m]
 auto kSensingRange = 300.;
 
 } // namespace
@@ -40,14 +41,11 @@ CoordinateConverter::Cartesian CoordinateConverter::GetCartesian(
 
   auto norm_x = spline_y_.deriv(1, frenet.s);
   auto norm_y = -spline_x_.deriv(1, frenet.s);
-
-  // FIXME: Handle the case of normal vector be shorter than the d-vector.
   assert(frenet.d * frenet.d > norm_x * norm_x - norm_y * norm_y);
+
   auto kd = std::sqrt(frenet.d * frenet.d - norm_x * norm_x - norm_y * norm_y);
 
-  Cartesian cartesian({x0 + kd * norm_x, y0 + kd * norm_y});
-
-  return cartesian;
+  return {x0 + kd * norm_x, y0 + kd * norm_y};
 }
 
 VehicleMap CoordinateConverter::GetVehicles(

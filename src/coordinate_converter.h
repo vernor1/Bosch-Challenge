@@ -5,19 +5,22 @@
 #include "spline.h"
 #include "vehicle.h"
 
+// Implements Coordinate Converter.
 class CoordinateConverter {
 public:
-  // TODO: Consider removing structures Frenet and Cartesian.
+  // Type of Frenet coords.
   struct Frenet {
     double s;
     double d;
   };
+
+  // Type of Cartesian coords.
   struct Cartesian {
     double x;
     double y;
   };
 
-  // [id, x, y, vx, vy, s, d]
+  // Type of a detected vehicle.
   struct DetectedVehicle {
     std::size_t id;
     double x;
@@ -28,13 +31,27 @@ public:
     double d;
   };
 
+  // Constructor.
+  // @param waypoints_x   Sequence of map waypoints, x-coordinate.
+  // @param waypoints_x   Sequence of map waypoints, y-coordinate.
+  // @param waypoints_x   Sequence of map waypoints, s-coordinate.
+  // @param track_length  Track length [m].
   CoordinateConverter(const std::vector<double>& waypoints_x,
                       const std::vector<double>& waypoints_y,
                       const std::vector<double>& waypoints_s,
                       double track_length);
 
+  // Converts Frenet to Cartesian.
+  // @param[in] current_s  Current s-coordinate.
+  // @param[in] frenet     Frenet coordinates.
+  // @return  Cartesian coordinates.
   Cartesian GetCartesian(double current_s, const Frenet& frenet);
 
+  // Converts other vehicles' coordinates from the instant simulator format
+  // to Frenet state coordinates.
+  // @param[in] current_s      Current s-coordinate.
+  // @param[in] sensor_fusion  Detected vehicles.
+  // @return  Other vehicle map.
   VehicleMap GetVehicles(double current_s,
                          const std::vector<DetectedVehicle>& sensor_fusion);
 
@@ -52,6 +69,7 @@ private:
   tk::spline spline_x_;
   tk::spline spline_y_;
 
+  // Updates current splines in necessary.
   void UpdateSplines(double current_s);
 };
 

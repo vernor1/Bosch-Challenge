@@ -5,10 +5,22 @@
 #include "trajectory_estimator.h"
 #include "vehicle.h"
 
+// Implements Trajectory Generator.
 class TrajectoryGenerator {
 public:
+  // Constructor.
   TrajectoryGenerator();
 
+  // Generates a free-running trajectory of a vehicle.
+  // @param[in] begin_s      Initial state vector of s-coordinate.
+  // @param[in] begin_d      Initial state vector of d-coordinate.
+  // @param[in] target_s     Target state vector of s-coordinate.
+  // @param[in] target_d     Target state vector of d-coordinate.
+  // @param[in] target_time  Target time.
+  // @param[in] vehicles     Other vehicle's map.
+  // @param[in] d_limit      Road width.
+  // @param[in] s_dot_limit  Speed limit.
+  // @return  Vehicle's trajectory.
   Vehicle::Trajectory Generate(const Vehicle::State& begin_s,
                                const Vehicle::State& begin_d,
                                const Vehicle::State& target_s,
@@ -18,6 +30,17 @@ public:
                                double d_limit,
                                double s_dot_limit) const;
 
+  // Generates a trajectory of a vehicle following other vehicle.
+  // @param[in] begin_s      Initial state vector of s-coordinate.
+  // @param[in] begin_d      Initial state vector of d-coordinate.
+  // @param[in] target_vehicle_id  Other vehicle Id.
+  // @param[in] delta_s      Delta state vector w.r.t. other's s-coordinate.
+  // @param[in] delta_d      Delta state vector w.r.t. other's d-coordinate.
+  // @param[in] target_time  Target time.
+  // @param[in] vehicles     Other vehicle's map.
+  // @param[in] d_limit      Road width.
+  // @param[in] s_dot_limit  Speed limit.
+  // @return  Vehicle's trajectory.
   Vehicle::Trajectory Generate(const Vehicle::State& begin_s,
                                const Vehicle::State& begin_d,
                                std::size_t target_vehicle_id,
