@@ -1,6 +1,7 @@
 #ifndef TRAJECTORYESTIMATOR_H
 #define TRAJECTORYESTIMATOR_H
 
+#include <functional>
 #include <vector>
 #include "vehicle.h"
 
