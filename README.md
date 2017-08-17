@@ -23,7 +23,7 @@ The car drove three laps (more than 13 miles) without an incident. See the recor
 
 #### 2. The car drives according to the speed limit.
 
-The speed limit is never exceeded. The car drived 5 mph below the posted speed limit unless there is slow trafic ahead.
+The speed limit is never exceeded. The car drives at a speed 5 mph below the posted speed limit unless there is slow traffic ahead.
 
 #### 3. Max Acceleration and Jerk are not Exceeded.
 
@@ -48,7 +48,7 @@ The class diagram of the solution: <p align="center"><img src="pic/class_diagram
 
 _**Path Planner**_
 
-Implements the core functionality of Path Planner. It uses the Vehicle class, embeds Coordinate Converter and Trajectory Generator, and also aggregates Planner State. The only public method provided by this class is `Update`, which receives simulator data from the WebSoket server:
+Implements the core functionality of Path Planner. It uses the Vehicle class, embeds Coordinate Converter and Trajectory Generator, and also aggregates Planner State. The only public method provided by this class is `Update`, which receives simulator data from the WebSocket server:
 * Current s,d-coordinates, lane width, number of lanes on the road, and speed limit.
 * Previous path x,y.
 * Sensor fusion data.
@@ -60,13 +60,13 @@ Every 1 second, Path Planner dry-runs Trajectory Generator to predict the car's 
 
 There are two modes of generating the trajectory: free run at comfortable speed and following the vehicle ahead. Free is run is just driving at a speed 5 mph below the posted speed limit. Following the vehicle ahead is implemented by aligning own speed to maintain a buffer time of 3 seconds behind the other vehicle. There are two issues, which prevent using the direct trajectory generation function for following other vehicle:
 1) Coordinates of other vehicles are not precise, they're taken from the simulator, while the local coordinate system is computed off splines.
-2) Simulation of other vehicles is imperfect: they drive erraticaly with extreme jerks when the're following other vehicles.
+2) Simulation of other vehicles is imperfect: they drive erratically with extreme jerks when they're following other vehicles.
 
 In this case, own speed is computed as a function of distance to other vehicle `x`, its speed `v`, and preferred buffer time `b`:
 
 <img src="pic/speed_alignment_function.png" alt="Speed Alignment Function" width="250"/> <img src="pic/speed_alignment_plot.png" alt="Speed Alignment Plot" width="250"/>
 
-As shown on the example plot, the car maintains the target speed when following `b` seconds behind, gently accelerates when the distance increases, and deaccelerates when the distance decreases.
+As shown on the example plot, the car maintains the target speed when following `b` seconds behind, gently accelerates when the distance increases, and decelerates when the distance decreases.
 
 _**Vehicle**_
 
@@ -74,7 +74,7 @@ It's a simplistic class representing an other vehicle on the road derived from t
 
 _**Coordinate Converter**_
 
-Used by Path Planner to convert sensor fusion data of other vehicles to Frenet states, and to convert predicted path points from Frenet to Cartesian coordinates. Coordinate Convertor interpolates s-x and s-d splines over adjecent map points points, which are spanning as far as 300 meters away from the car. The distance is chosen to exceed the sensor fusion range, which is typically observed up to 250 meters away. [tk::spline](http://kluge.in-chemnitz.de/opensource/spline/) interpolation library is used in this solution. 
+Used by Path Planner to convert sensor fusion data of other vehicles to Frenet states, and to convert predicted path points from Frenet to Cartesian coordinates. Coordinate Convertor interpolates s-x and s-d splines over adjacent map points points, which are spanning as far as 300 meters away from the car. The distance is chosen to exceed the sensor fusion range, which is typically observed up to 250 meters away. [tk::spline](http://kluge.in-chemnitz.de/opensource/spline/) interpolation library is used in this solution. 
 
 _**Trajectory Generator**_
 
@@ -90,7 +90,7 @@ Trajectory Generator uses normal distributions of s- and d-coordinate, speed, an
 
 _**Trajectory Estimator**_
 
-Provides a single public method `GetCost` to compute the integral cost of a given trajectory. The class implements a number of trajectory cost functions of a diffrent weight:
+Provides a single public method `GetCost` to compute the integral cost of a given trajectory. The class implements a number of trajectory cost functions of a different weight:
 
 | Name          | Range | Weight | Description |
 |:-------------:|:-----:|:----:|:-----------|
@@ -110,7 +110,7 @@ Provides a single public method `GetCost` to compute the integral cost of a give
 _**Planner State**_
 
 This base class and derivatives implement the finite state machine of the Path Planner: <p align="center"><img src="pic/state_diagram.png" alt="State Diagram" width="750"/></p>
-Planner State an object-orinted State pattern with two methods:
+Planner State an object-oriented State pattern with two methods:
 * `GetState`: provides the state machine with a number of inputs necessary for making the decision about next state. If the decision is made to change the state, a new state object is returned by the method. The method caller is responsible to store the state object. If there's no state change, an NULL-pointer is returned, which is discarded by the method caller.
 * `GetTarget`: provides the target vehicle Id and lane of the current state.
 
@@ -118,17 +118,17 @@ Planner State uses two cost functions to compute the cost of driving lanes:
 * Lane number cost, range 0..1, weight 1: Rewards driving in a middle lane. Penalizes driving in a right lane a little bit more than a left lane. It forces the car to pass a slower vehicle ahead using a left lane if both side lanes are free.
 * Lane speed cost, range -1..1, weight 10: Rewards driving in a free lane, a lane with a vehicle too far ahead, a lane with a vehicle ahead driving at a higher speed. 
 
-The decision to change lanes is only made when it's safe to accomplish, i.e. there are no cars nearby in the target lane. Even though the state machine is currently implementing 3 states, it's easily scalable to more states, whith each state perfectly incapsulated in its own class.
+The decision to change lanes is only made when it's safe to accomplish, i.e. there are no cars nearby in the target lane. Even though the state machine is currently implementing 3 states, it's easily scalable to more states, with each state perfectly incapsulated in its own class.
 
 ---
-## Simulation
+### Simulation
 
 A recording of the final Path Planner (click to see the full footage):
 
 [![](pic/carnd_path_planning.gif)](https://youtu.be/AQDTm1KXMgM "Path Planning")
 
 ---
-## Dependencies
+### Dependencies
 
 * cmake >= 3.5
  * All OSes: [click here for installation instructions](https://cmake.org/install/)
@@ -156,3 +156,25 @@ A recording of the final Path Planner (click to see the full footage):
 2. Make a build directory: `mkdir build && cd build`
 3. Compile: `cmake .. && make`
 4. Run it: `./path_planning`.
+
+The code is covered with some unit tests. The [Google Test](https://github.com/google/googletest) framework is used for that. To build and run the tests, enter the command in the build directory:
+```
+$ cmake -Dtest=ON .. && make && make test
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /Users/vernor/Documents/carnd/carnd_path_planning/build
+[  8%] Built target trajectory_cost_lib
+[ 16%] Built target helpers_lib
+[ 24%] Built target vehicle_lib
+[ 56%] Built target gtest
+[ 64%] Built target test_trajectory_cost
+[100%] Built target path_planning
+Running tests...
+Test project /Users/vernor/Documents/carnd/carnd_path_planning/build
+    Start 1: test_trajectory_cost
+1/1 Test #1: test_trajectory_cost .............   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.01 sec
+```
