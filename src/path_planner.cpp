@@ -224,12 +224,12 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
   std::cout << "Generating trajectory";
   if (target_vehicle_id >= 0 && target_vehicle != other_vehicles.end()) {
     // Target vehicle is known, follow it.
-    // There are two issues, which prevent using the tragectory generation
+    // There are two issues, which prevent using the trajectory generation
     // function for following other vehicle:
     //   1) Coordinates of other vehicles are not precise, they're taken from
     //      the simulator, while the local coordinate system is computed off
     //      splines.
-    //   2) Simulation of other vehicles is imperhect: they drive erraticaly
+    //   2) Simulation of other vehicles is imperfect: they drive erraticaly
     //      with extreme jerks when the're following other vehicles.
     // So own speed is computed as a function of distance to other vehicle (ds)
     // and its speed (v): f(ds,v) = (ds/(b*v^(2/3))-v^(1/3))^3+v,
