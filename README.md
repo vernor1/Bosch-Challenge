@@ -48,7 +48,7 @@ The class diagram of the solution: <p align="center"><img src="pic/class_diagram
 
 _**Path Planner**_
 
-Implements the core functionality of Path Planner. It embeds Coordinate Converter and Trajectory Generator, and also aggregates Planner State. The only public method provided by this class is Update, which receives simulator data from the WebSoket server:
+Implements the core functionality of Path Planner. It uses the Vehicle class, embeds Coordinate Converter and Trajectory Generator, and also aggregates Planner State. The only public method provided by this class is `Update`, which receives simulator data from the WebSoket server:
 * Current s,d-coordinates, lane width, number of lanes on the road, and speed limit.
 * Previous path x,y.
 * Sensor fusion data.
@@ -62,13 +62,17 @@ There are two modes of generating the trajectory: free run at comfortable speed 
 1) Coordinates of other vehicles are not precise, they're taken from the simulator, while the local coordinate system is computed off splines.
 2) Simulation of other vehicles is imperfect: they drive erraticaly with extreme jerks when the're following other vehicles.
 
-So own speed is computed as a function of distance to other vehicle `x`, its speed `v`, and preferred buffer time `b`: <img src="pic/speed_alignment_function.png" alt="Speed Alignment Function" width="250"/> <img src="pic/speed_alignment_plot.png" alt="PsiDes" width="250"/>
+In this case, own speed is computed as a function of distance to other vehicle `x`, its speed `v`, and preferred buffer time `b`: <img src="pic/speed_alignment_function.png" alt="Speed Alignment Function" width="250"/> <img src="pic/speed_alignment_plot.png" alt="PsiDes" width="250"/>
 
 As shown on the example plot, the car maintains the target speed when following `b` seconds behind, gently accelerates when the distance increases, and deaccelerates when the distance decreases.
 
+_**Vehicle**_
+
+It's a simplistic class representing an other vehicle on the road derived from the sensor fusion data. It provides method `GetState` to predict the other vehicle's state at a given time.
+
 _**Coordinate Converter**_
 
-Used by Path Planner to convert sensor fusion data of other vehicles to Frenet states, and to convert predicted path points from Frenet to Cartesian coordinates.
+Used by Path Planner to convert sensor fusion data of other vehicles to Frenet states, and to convert predicted path points from Frenet to Cartesian coordinates. Coordinate Convertor interpolates s-x and s-d splines over adjecent map points points, which are spanning as far as 300 meters away from the car. The distance is chosen to exceed the sensor fusion range, which is typically observed up to 250 meters away.
 
 ---
 ## Dependencies
