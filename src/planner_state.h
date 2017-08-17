@@ -23,7 +23,7 @@ public:
   // @param[in] current_s        State vector of current d-coord.
   // @param[in] preferred_speed  Preferred speed [m/s]
   // @param[in] next_t           Next time step.
-  // @param[in] next_s           Next s-coord.
+  // @param[in] next_s           Next s-coordinate.
   // @param[in] other_vehicles   Other vehicles on the road.
   // @return  Next state if the current state changes, NULL otherwise.
   virtual std::shared_ptr<PlannerState> GetState(

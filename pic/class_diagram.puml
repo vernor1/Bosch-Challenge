@@ -1,0 +1,53 @@
+@startuml
+
+class Vehicle {
+  -begin_s_
+  -begin_d_
+  +GetState()
+}
+
+class PathPlanner {
+  -coordinate_converter_
+  -trajectory_generator_
+  -planner_state
+  +Update()
+}
+
+class CoordinateConverter {
+  -spline_x_
+  -spline_y_
+  +GetCartesian()
+  +GetVehicles()
+}
+
+class TrajectoryGenerator {
+  -trajectory_estimator_
+  -dist_*
+  +Generate()
+}
+
+class TrajectoryEstimator {
+  -*_coeffs_
+  +GetCost()
+}
+
+class PlannerState {
+  -target_lane_
+  -target_vehicle_id_
+  +GetState()
+  +GetTarget()
+}
+class PlannerStateKeepingLane
+class PlannerStateChangingLaneLeft
+class PlannerStateChangingLaneRight
+
+PathPlanner *-- CoordinateConverter
+PathPlanner *-- TrajectoryGenerator
+PathPlanner o-- PlannerState
+PathPlanner "1" o-- "*" Vehicle
+PlannerState <|-- PlannerStateKeepingLane
+PlannerState <|-- PlannerStateChangingLaneLeft
+PlannerState <|-- PlannerStateChangingLaneRight
+TrajectoryGenerator *-- TrajectoryEstimator
+
+@enduml

@@ -40,6 +40,8 @@ public:
                       const std::vector<double>& waypoints_y,
                       const std::vector<double>& waypoints_s,
                       double track_length);
+  CoordinateConverter(const CoordinateConverter&) = delete;
+  CoordinateConverter& operator=(const CoordinateConverter&) = delete;
 
   // Converts Frenet to Cartesian.
   // @param[in] current_s  Current s-coordinate.

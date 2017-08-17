@@ -32,6 +32,8 @@ public:
               const std::vector<double>& waypoints_y,
               const std::vector<double>& waypoints_s,
               double track_length);
+  PathPlanner(const PathPlanner&) = delete;
+  PathPlanner& operator=(const PathPlanner&) = delete;
 
   // Updates the Path Planner and controls the simulator.
   // @param[in] current_s         Current s-coordinate of the vehicle.

@@ -4,10 +4,24 @@
 #include <vector>
 #include "vehicle.h"
 
+// Estimates a given trajectory, provides its cost.
 class TrajectoryEstimator {
 public:
+  // Constructor.
   TrajectoryEstimator();
+  TrajectoryEstimator(const TrajectoryEstimator&) = delete;
+  TrajectoryEstimator& operator=(const TrajectoryEstimator&) = delete;
 
+  // Provides the cost of a trajectory.
+  // @param[in] trajectory   Trajectory.
+  // @param[in] target_s     Target state of s-coordinate.
+  // @param[in] target_d     Target state of d-coordinate.
+  // @param[in] target_time  Targter time.
+  // @param[in] vehicles     Other vehicles.
+  // @param[in] d_limit      Limit of d-coordinate (road width).
+  // @param[in] s_dot_limit  Limit of s_dot (speed limit).
+  // @param[in] is_verbose   Indicates if verbose output is needed.
+  // @return  Cost of the trajectory.
   double GetCost(const Vehicle::Trajectory& trajectory,
                  const Vehicle::State& target_s,
                  const Vehicle::State& target_d,
@@ -17,6 +31,17 @@ public:
                  double s_dot_limit,
                  bool is_verbose = false);
 
+  // Provides the partial cost of a trajectory. This method is used for testing
+  // only, since the caller must know the internal names of cost functions.
+  // @param[in] costFunctionName  Name of a cost function.
+  // @param[in] trajectory        Trajectory to compute the cost for.
+  // @param[in] target_s          Target state of s-coordinate.
+  // @param[in] target_d          Target state of d-coordinate.
+  // @param[in] target_time       Targter time.
+  // @param[in] vehicles          Other vehicles.
+  // @param[in] d_limit           Limit of d-coordinate (road width).
+  // @param[in] s_dot_limit       Limit of s_dot (speed limit).
+  // @return  Partial cost of the trajectory.
   double GetCost(const std::string& costFunctionName,
                  const Vehicle::Trajectory& trajectory,
                  const Vehicle::State& target_s,
@@ -27,6 +52,15 @@ public:
                  double s_dot_limit);
 
 private:
+  // Prototype of a cost function.
+  // @param[in] trajectory        Trajectory to compute the cost for.
+  // @param[in] target_s          Target state of s-coordinate.
+  // @param[in] target_d          Target state of d-coordinate.
+  // @param[in] target_time       Targter time.
+  // @param[in] vehicles          Other vehicles.
+  // @param[in] d_limit           Limit of d-coordinate (road width).
+  // @param[in] s_dot_limit       Limit of s_dot (speed limit).
+  // @return  Cost of the trajectory.
   typedef std::function<double(TrajectoryEstimator&,
                                const Vehicle::Trajectory& trajectory,
                                const Vehicle::State& target_s,
@@ -86,6 +120,9 @@ private:
   double GetClosestDistanceToAnyVehicle(const Vehicle::Trajectory& trajectory,
                                         const VehicleMap& vehicles);
 
+  // Cost Functions
+  // ---------------------------------------------------------------------------
+
   // Penalizes trajectories that span a duration which is longer or shorter than
   // the duration requested.
   double GetTimeDiffCost(const Vehicle::Trajectory& trajectory,
@@ -96,7 +133,7 @@ private:
                          double d_limit,
                          double s_dot_limit);
 
-  // Penalizes trajectories whose s coordinate (and derivatives) differ from the
+  // Penalizes trajectories whose s-coordinate (and derivatives) differ from the
   // goal.
   double GetSdiffCost(const Vehicle::Trajectory& trajectory,
                       const Vehicle::State& target_s,
@@ -106,7 +143,7 @@ private:
                       double d_limit,
                       double s_dot_limit);
 
-  // Penalizes trajectories whose d coordinate (and derivatives) differ from the
+  // Penalizes trajectories whose d-coordinate (and derivatives) differ from the
   // goal.
   double GetDdiffCost(const Vehicle::Trajectory& trajectory,
                       const Vehicle::State& target_s,
@@ -134,6 +171,7 @@ private:
                        double d_limit,
                        double s_dot_limit);
 
+  // Penalizes getting off-road.
   double GetOffRoadCost(const Vehicle::Trajectory& trajectory,
                         const Vehicle::State& target_s,
                         const Vehicle::State& target_d,
@@ -142,6 +180,7 @@ private:
                         double d_limit,
                         double s_dot_limit);
 
+  // Penalizes exceeding the speed limit.
   double GetSpeedingCost(const Vehicle::Trajectory& trajectory,
                          const Vehicle::State& target_s,
                          const Vehicle::State& target_d,
@@ -159,6 +198,7 @@ private:
                            double d_limit,
                            double s_dot_limit);
 
+  // Penalizes maximum instant s-acceleration.
   double GetMaxSAccelCost(const Vehicle::Trajectory& trajectory,
                           const Vehicle::State& target_s,
                           const Vehicle::State& target_d,
@@ -167,6 +207,7 @@ private:
                           double d_limit,
                           double s_dot_limit);
 
+  // Penalizes maximum instant d-acceleration.
   double GetMaxDAccelCost(const Vehicle::Trajectory& trajectory,
                           const Vehicle::State& target_s,
                           const Vehicle::State& target_d,
@@ -175,6 +216,7 @@ private:
                           double d_limit,
                           double s_dot_limit);
 
+  // Penalizes maximum sum of instant s- and d-acceleration.
   double GetMaxTotalAccelCost(const Vehicle::Trajectory& trajectory,
                               const Vehicle::State& target_s,
                               const Vehicle::State& target_d,
@@ -183,6 +225,7 @@ private:
                               double d_limit,
                               double s_dot_limit);
 
+  // Penalizes sum of s- and d-acceleration over time.
   double GetTotalAccelCost(const Vehicle::Trajectory& trajectory,
                            const Vehicle::State& target_s,
                            const Vehicle::State& target_d,
@@ -191,6 +234,7 @@ private:
                            double d_limit,
                            double s_dot_limit);
 
+  // Penalizes maximum instant s-jerk.
   double GetMaxJerkCost(const Vehicle::Trajectory& trajectory,
                         const Vehicle::State& target_s,
                         const Vehicle::State& target_d,
@@ -199,6 +243,7 @@ private:
                         double d_limit,
                         double s_dot_limit);
 
+  // Penalizes s-jerk over time.
   double GetTotalJerkCost(const Vehicle::Trajectory& trajectory,
                           const Vehicle::State& target_s,
                           const Vehicle::State& target_d,

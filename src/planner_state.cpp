@@ -33,18 +33,30 @@ enum class Lane {
 // Local Constants
 // -----------------------------------------------------------------------------
 
+// Preferred buffer time when changing lanes [s].
 auto kPreferredBufferTime = 2.;
 
 // Laterral acceleration (d_dot) when driving straight [m/s/s] 
 auto kStraightDDot = 0.3;
 
+// Additional cost of passing in a right lane.
+auto kRightLanePassingCost = 1e-3;
+
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
 
+// Provides lane number.
+// @param[in] d           d-coordinate.
+// @param[in] lane_width  Lane width [m]
+// @return  Lane number.
 std::size_t GetLaneNumber(double d, double lane_width) {
   return d / lane_width;
 }
 
+// Provides lane number.
+// @param[in] lane         Relative lane position w.r.t. target lane.
+// @param[in] target_lane  Target lane number.
+// @return  Lane number.
 std::size_t GetLaneNumber(Lane lane, std::size_t target_lane) {
   switch (lane) {
     case Lane::kTarget:
@@ -57,6 +69,14 @@ std::size_t GetLaneNumber(Lane lane, std::size_t target_lane) {
   }
 }
 
+// Provides adjacent vehicles.
+// @param[in] target_lane     Target lane number.
+// @param[in] n_lanes         Number of lanes on the road.
+// @param[in] lane_width      Lane width [m]
+// @param[in] next_t          Next time step.
+// @param[in] next_s          Next s-coordinate.
+// @param[in] other_vehicles  Other vehicles.
+// @return  Adjacent vehicles.
 AdjacentVehicles GetAdjacentVehicles(
   std::size_t target_lane,
   std::size_t n_lanes,
@@ -206,10 +226,25 @@ AdjacentVehicles GetAdjacentVehicles(
   return adjacent_vehicles;
 }
 
-double GetLaneNumberCost(std::size_t lane) {
-  return 1. / (lane + 1);
+// Computes cost of lane number.
+// @param[in] lane     Lane number.
+// @param[in] n_lanes  Number of lanes on the road.
+// @return  Cost.
+double GetLaneNumberCost(std::size_t lane, std::size_t n_lanes) {
+  auto middle_lane = n_lanes / 2;
+  auto cost = std::fabs(static_cast<double>(lane) - middle_lane) / n_lanes;
+  if (lane > middle_lane) {
+    cost += kRightLanePassingCost;
+  }
+  return cost;
 }
 
+// Computes cost of lane speed.
+// @param[in] lane              Relative lane position w.r.t. target lane.
+// @param[in] preferred_buffer  Preferred buffer with other vehicles [m]
+// @param[in] preferred_speed   Preferred own speed [m/s]
+// @param[in] vehicles          Adjacent vehicles.
+// @return  Cost.
 double GetLaneSpeedCost(Lane lane,
                         double preferred_buffer,
                         double preferred_speed,
@@ -236,12 +271,22 @@ double GetLaneSpeedCost(Lane lane,
   return (preferred_speed - vehicle_ahead->second.s_dot) / preferred_speed;
 }
 
+// Computes total lane cost.
+// @param[in] lane              Relative lane position w.r.t. target lane.
+// @param[in] target_lane       Target lane number.
+// @param[in] n_lanes           Number of lanes on the road.
+// @param[in] preferred_buffer  Preferred buffer with other vehicles [m]
+// @param[in] preferred_speed   Preferred own speed [m/s]
+// @param[in] vehicles          Adjacent vehicles.
+// @return  Cost.
 double GetLaneCost(Lane lane,
                    std::size_t target_lane,
+                   std::size_t n_lanes,
                    double preferred_buffer,
                    double preferred_speed,
                    const AdjacentVehicles& adjacent_vehicles) {
-  auto lane_nr_cost = GetLaneNumberCost(GetLaneNumber(lane, target_lane));
+  auto lane_nr_cost = GetLaneNumberCost(GetLaneNumber(lane, target_lane),
+                                        n_lanes);
   auto lane_speed_cost = GetLaneSpeedCost(lane,
                                           preferred_buffer,
                                           preferred_speed,
@@ -253,8 +298,12 @@ double GetLaneCost(Lane lane,
   return total_cost;
 }
 
-int GetAdjacentVehicleId(const AdjacentVehicles& vehicles,
-                         AdjacentVehicleType type) {
+// Provides adjacent vehicle Id.
+// @param[in] vehicles  Adjacent vehicles.
+// @param[in] type      Adjacent vehicle type.
+// @return  Vehicle Id if the vehicle is detected, -1 otherwise.
+inline int GetAdjacentVehicleId(const AdjacentVehicles& vehicles,
+                                AdjacentVehicleType type) {
   auto vehicle = vehicles.find(type);
   if (vehicle != vehicles.end()) {
     return vehicle->second.id;
@@ -262,6 +311,11 @@ int GetAdjacentVehicleId(const AdjacentVehicles& vehicles,
   return -1;
 }
 
+// Provides target vehicle Id.
+// @param[in] vehicle_ahead_id  Identifier of the vehicle ahead.
+// @param[in] other_vehicles    Other vehicles on the road.
+// @param[in] preferred_buffer  Preferred buffer with other vehicles [m]
+// @return  Vehicle Id if the vehicle is detected, -1 otherwise.
 inline int GetTargetVehicleId(int vehicle_ahead_id,
                               const VehicleMap& other_vehicles,
                               double preferred_buffer) {
@@ -278,6 +332,12 @@ inline int GetTargetVehicleId(int vehicle_ahead_id,
   return -1;
 }
 
+// Computes if a lane change is safe.
+// @param[in] vehicle_ahead_id   Identifier of the vehicle ahead.
+// @param[in] vehicle_behind_id  Identifier of the vehicle behind.
+// @param[in] other_vehicles     Other vehicles on the road.
+// @param[in]  current_speed     Current vehicle speed.
+// @return  True if the lane change is safe, false otherwise.
 inline bool IsLaneChangeSafe(int vehicle_ahead_id,
                              int vehicle_behind_id,
                              const VehicleMap& other_vehicles,
@@ -374,10 +434,8 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
   }
 
   auto preferred_buffer = kPreferredBufferTime * preferred_speed;
-  auto target_lane_cost = GetLaneCost(Lane::kTarget,
-                                      target_lane_,
-                                      preferred_buffer,
-                                      preferred_speed,
+  auto target_lane_cost = GetLaneCost(Lane::kTarget, target_lane_, n_lanes,
+                                      preferred_buffer, preferred_speed,
                                       adjacent_vehicles);
   auto left_lane_cost = 0.;
   auto right_lane_cost = 0.;
@@ -389,10 +447,8 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
   auto vehicle_behind_left_id = -1;
   auto vehicle_behind_right_id = -1;
   if (is_left_lane_available) {
-    left_lane_cost = GetLaneCost(Lane::kLeft,
-                                 target_lane_,
-                                 preferred_buffer,
-                                 preferred_speed,
+    left_lane_cost = GetLaneCost(Lane::kLeft, target_lane_, n_lanes,
+                                 preferred_buffer, preferred_speed,
                                  adjacent_vehicles);
     vehicle_ahead_left_id = GetAdjacentVehicleId(
       adjacent_vehicles, AdjacentVehicleType::kAheadLeft);
@@ -400,10 +456,8 @@ std::shared_ptr<PlannerState> PlannerStateKeepingLane::GetState(
       adjacent_vehicles, AdjacentVehicleType::kBehindLeft);
   }
   if (is_right_lane_available) {
-    right_lane_cost = GetLaneCost(Lane::kRight,
-                                  target_lane_,
-                                  preferred_buffer,
-                                  preferred_speed,
+    right_lane_cost = GetLaneCost(Lane::kRight, target_lane_, n_lanes,
+                                  preferred_buffer, preferred_speed,
                                   adjacent_vehicles);
     vehicle_ahead_right_id = GetAdjacentVehicleId(
       adjacent_vehicles, AdjacentVehicleType::kAheadRight);

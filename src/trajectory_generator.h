@@ -10,6 +10,8 @@ class TrajectoryGenerator {
 public:
   // Constructor.
   TrajectoryGenerator();
+  TrajectoryGenerator(const TrajectoryGenerator&) = delete;
+  TrajectoryGenerator& operator=(const TrajectoryGenerator&) = delete;
 
   // Generates a free-running trajectory of a vehicle.
   // @param[in] begin_s      Initial state vector of s-coordinate.

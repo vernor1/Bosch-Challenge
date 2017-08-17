@@ -27,7 +27,6 @@ const Vehicle::Trajectory COLLISION_TRAJECTORY = {
   17
 };
 
-// TODO: Consider making a shared helper.
 void GetTargetState(const Vehicle& target_vehicle,
                     double target_time,
                     const Vehicle::State& delta_s,
@@ -48,19 +47,6 @@ void GetTargetState(const Vehicle& target_vehicle,
 }
 
 } // namespace
-
-/*
-    (time_diff_cost,    1),
-    (s_diff_cost,       100),
-    (d_diff_cost,       100),
-    (efficiency_cost,   1),
-    (max_jerk_cost,     10),
-    (total_jerk_cost,   1),
-    (collision_cost,    100),
-    (buffer_cost,       10),
-    (max_accel_cost,    10),
-    (total_accel_cost,  1)
-*/
 
 TEST(TrajectoryEstimator, TimeDiffCost) {
   TrajectoryEstimator trajectory_estimator;
@@ -155,13 +141,13 @@ TEST(TrajectoryEstimator, TotalJerkCost) {
     DELTA_S, DELTA_D, target_s, target_d);
   auto cost = trajectory_estimator.GetCost("TotalJerk", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
-  EXPECT_NEAR(0.0532924045646, cost, 1e-3);
+  EXPECT_NEAR(0.011853432018670507, cost, 1e-3);
 
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost = trajectory_estimator.GetCost("TotalJerk", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
-  EXPECT_NEAR(0.0160015167532, cost, 1e-3);
+  EXPECT_NEAR(0.0035561811532192067, cost, 1e-3);
 }
 
 TEST(TrajectoryEstimator, CollisionCost) {
@@ -198,19 +184,19 @@ TEST(TrajectoryEstimator, GetBufferCost) {
   EXPECT_NEAR(8.21378211245, cost * 10., 1e-3);
 }
 
-TEST(TrajectoryEstimator, MaxSAccelCost) {
+TEST(TrajectoryEstimator, MaxTotalAccelCost) {
   TrajectoryEstimator trajectory_estimator;
   Vehicle::State target_s;
   Vehicle::State target_d;
   GetTargetState(TARGET_VEHICLE, BEST_TRAJECTORY.time,
     DELTA_S, DELTA_D, target_s, target_d);
-  auto cost = trajectory_estimator.GetCost("MaxSAccel", BEST_TRAJECTORY,
+  auto cost = trajectory_estimator.GetCost("MaxTotalAccel", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0., cost * 10, 1e-3);
 
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
-  cost = trajectory_estimator.GetCost("MaxSAccel", COLLISION_TRAJECTORY,
+  cost = trajectory_estimator.GetCost("MaxTotalAccel", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
   EXPECT_NEAR(0., cost * 10, 1e-3);
 }
@@ -223,11 +209,11 @@ TEST(TrajectoryEstimator, TotalAccelCost) {
     DELTA_S, DELTA_D, target_s, target_d);
   auto cost = trajectory_estimator.GetCost("TotalAccel", BEST_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
-  EXPECT_NEAR(0.321979347364, cost, 1e-3);
+  EXPECT_NEAR(0.051463370631273486, cost, 1e-3);
 
   GetTargetState(TARGET_VEHICLE, COLLISION_TRAJECTORY.time,
     COLLISION_DELTA_S, DELTA_D, target_s, target_d);
   cost = trajectory_estimator.GetCost("TotalAccel", COLLISION_TRAJECTORY,
     target_s, target_d, TARGET_TIME, VEHICLES, D_LIMIT, S_DOT_LIMIT);
-  EXPECT_NEAR(0.0998225885096, cost, 1e-3);
+  EXPECT_NEAR(0.018121509220275778, cost, 1e-3);
 }
