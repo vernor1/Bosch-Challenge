@@ -388,10 +388,10 @@ double TrajectoryEstimator::GetDdiffCost(const Vehicle::Trajectory& trajectory,
                                      const VehicleMap& vehicles,
                                      double /*d_limit*/,
                                      double /*s_dot_limit*/) {
+  ComputeDDoubleDotCoeffs(trajectory.d_coeffs);
   std::vector<std::vector<double>> polyAndDerivatives = {{trajectory.d_coeffs}};
-  auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
-  polyAndDerivatives.push_back(d_dot_coeffs);
-  polyAndDerivatives.push_back(helpers::GetDerivative(d_dot_coeffs));
+  polyAndDerivatives.push_back(d_dot_coeffs_);
+  polyAndDerivatives.push_back(d_double_dot_coeffs_);
   assert(polyAndDerivatives.size() == Vehicle::kStateOrder);
   auto cost = 0.;
   for (std::size_t i = 0; i < polyAndDerivatives.size(); ++i) {
