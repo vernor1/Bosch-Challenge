@@ -54,9 +54,18 @@ Implements the core functionality of Path Planner. It embeds Coordinate Converte
 * Sensor fusion data.
 * A control functor providing x,y-coordinates of the next planned points back to the simulator.
 
-Path Planner uses Trajectory Generator to generate a safe and feasible trajectory for the planning time of 2 seconds, and 50 points of the first second are passed to the simulator. Upon each update, Path Planner tries to reuse the unused portion of the planned trajectory, appending it with new points to maintain 50 points of the projected path. An exclusion is the cases of beginning to change lanes and following a vehicle ahead, then the previous planned points are discarded (except first 5 ones), and a new path is generated. Discarding previous points is needed to start a maneuver immediately, if safe. The first 5 points are always reused because the controls are delayed for about 100 ms, and the points are sampled every 20 ms.
+Path Planner uses Trajectory Generator to continuously generate a safe and feasible trajectory for the planning time of 2 seconds, and 50 points of the first second are passed to the simulator. Upon each update, Path Planner tries to reuse the unused portion of the planned trajectory, appending it with new points to maintain 50 points of the projected path. An exclusion is the cases of beginning to change lanes and following a vehicle ahead, then the previous planned points are discarded (except first 5 ones), and a new path is generated. Discarding previous points is needed to start a maneuver immediately, if safe. The first 5 points are always reused because the controls are delayed for about 100 ms, and the points are sampled every 20 ms.
 
-##### _Coordinate Convertor_
+Every 1 second, Path Planner dry-runs Trajectory Generator to predict the car's position in a second, and uses the prediction along with the current simulator data to determine the next state. The state machine and the state transition logic is implemented in the Path Planner family of state classes.
+
+There are two modes of generating the trajectory: free run at comfortable speed and following the vehicle ahead. Free is run is just driving at a speed 5 mph below the posted speed limit. Following the vehicle ahead is implemented by aligning own speed to maintain a buffer time of 3 seconds behind the other vehicle. There are two issues, which prevent using the direct trajectory generation function for following other vehicle:
+1) Coordinates of other vehicles are not precise, they're taken from the simulator, while the local coordinate system is computed off splines.
+2) Simulation of other vehicles is imperfect: they drive erraticaly with extreme jerks when the're following other vehicles.
+
+So own speed is computed as a function of distance to other vehicle (x), its speed (v), and preferred buffer time (b): <img src="pic/speed_alignment_function.png" alt="Speed Alignment Function" width="250"/> <img src="pic/speed_alignment_plot.png" alt="PsiDes" width="250"/>
+
+_**Coordinate Converter**_
+
 Used by Path Planner to convert sensor fusion data of other vehicles to Frenet states, and to convert predicted path points from Frenet to Cartesian coordinates.
 
 ---
