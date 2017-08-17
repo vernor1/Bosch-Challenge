@@ -107,6 +107,26 @@ Provides a single public method `GetCost` to compute the integral cost of a give
 | MaxJerk       | 0,1   | 500  | Penalizes maximum instant s-jerk |
 | TotalJerk     | 0..1  | 500  | Penalizes s-jerk over time |
 
+_**Planner State**_
+
+This base class and derivatives implement the finite state machine of the Path Planner: <p align="center"><img src="pic/state_diagram.png" alt="State Diagram" width="750"/></p>
+Planner State an object-orinted State pattern with two methods:
+* `GetState`: provides the state machine with a number of inputs necessary for making the decision about next state. If the decision is made to change the state, a new state object is returned by the method. The method caller is responsible to store the state object. If there's no state change, an NULL-pointer is returned, which is discarded by the method caller.
+* `GetTarget`: provides the target vehicle Id and lane of the current state.
+
+Planner State uses two cost functions to compute the cost of driving lanes:
+* Lane number cost, range 0..1, weight 1: Rewards driving in a middle lane. Penalizes driving in a right lane a little bit more than a left lane. It forces the car to pass a slower vehicle ahead using a left lane if both side lanes are free.
+* Lane speed cost, range -1..1, weight 10: Rewards driving in a free lane, a lane with a vehicle too far ahead, a lane with a vehicle ahead driving at a higher speed. 
+
+The decision to change lanes is only made when it's safe to accomplish, i.e. there are no cars nearby in the target lane. Even though the state machine is currently implementing 3 states, it's easily scalable to more states, whith each state perfectly incapsulated in its own class.
+
+---
+## Simulation
+
+A recording of the final Path Planner (click to see the full footage):
+
+[![](pic/carnd_path_planning.gif)](https://youtu.be/AQDTm1KXMgM "Path Planning")
+
 ---
 ## Dependencies
 
