@@ -2,9 +2,9 @@ project(Path_Planning)
 
 cmake_minimum_required (VERSION 3.5)
 
-add_definitions(-Werror -Wall -std=c++11 -O3)
+add_definitions(-std=c++11 -O3)
 
-set(CXX_FLAGS "-Wall -Werror")
+set(CXX_FLAGS "-Wall")
 set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
 set(sources src/coordinate_converter.cpp
