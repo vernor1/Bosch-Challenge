@@ -46,7 +46,17 @@ The car is able to smoothly change lanes when it makes sense to do so, such as w
 
 The class diagram of the solution: <p align="center"><img src="pic/class_diagram.png" alt="Class Diagram"/></p>
 
+##### _Path Planner_
+Implements the core functionality of Path Planner. It embeds Coordinate Converter and Trajectory Generator, and also aggregates Planner State. The only public method provided by this class is Update, which receives simulator data from the WebSoket server:
+* Current s,d-coordinates, lane width, number of lanes on the road, and speed limit.
+* Previous path x,y.
+* Sensor fusion data.
+* A control functor providing x,y-coordinates of the next planned points back to the simulator.
 
+Path Planner uses Trajectory Generator to generate a safe and feasible trajectory for the planning time of 2 seconds, and 50 points of the first second are passed to the simulator. Upon each update, Path Planner tries to reuse the unused portion of the planned trajectory, appending it with new points to maintain 50 points of the projected path. An exclusion is the cases of beginning to change lanes and following a vehicle ahead, then the previous planned points are discarded (except first 5 ones), and a new path is generated. Discarding previous points is needed to start a maneuver immediately, if safe. The first 5 points are always reused because the controls are delayed for about 100 ms, and the points are sampled every 20 ms.
+
+##### _Coordinate Convertor_
+Used by Path Planner to convert sensor fusion data of other vehicles to Frenet states, and to convert predicted path points from Frenet to Cartesian coordinates.
 
 ---
 ## Dependencies
