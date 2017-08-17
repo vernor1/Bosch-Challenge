@@ -29,6 +29,11 @@ auto kTargetTimespan = 4. * kTargetTimestep;
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
 
+// Computes a jerk minimizing trajectory (JMT).
+// @param[in] begin  Beginning state vector.
+// @param[in] end    Ending state vector.
+// @param[in] t      Time.
+// @return  6th order polynomial coefficients of the JMT trajectory.
 std::vector<double> GetJmt(const Vehicle::State& begin,
                            const Vehicle::State& end,
                            double t)
