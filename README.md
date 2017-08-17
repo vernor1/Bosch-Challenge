@@ -62,7 +62,9 @@ There are two modes of generating the trajectory: free run at comfortable speed 
 1) Coordinates of other vehicles are not precise, they're taken from the simulator, while the local coordinate system is computed off splines.
 2) Simulation of other vehicles is imperfect: they drive erraticaly with extreme jerks when the're following other vehicles.
 
-In this case, own speed is computed as a function of distance to other vehicle `x`, its speed `v`, and preferred buffer time `b`: <img src="pic/speed_alignment_function.png" alt="Speed Alignment Function" width="250"/> <img src="pic/speed_alignment_plot.png" alt="PsiDes" width="250"/>
+In this case, own speed is computed as a function of distance to other vehicle `x`, its speed `v`, and preferred buffer time `b`:
+
+<img src="pic/speed_alignment_function.png" alt="Speed Alignment Function" width="250"/> <img src="pic/speed_alignment_plot.png" alt="Speed Alignment Plot" width="250"/>
 
 As shown on the example plot, the car maintains the target speed when following `b` seconds behind, gently accelerates when the distance increases, and deaccelerates when the distance decreases.
 
@@ -72,7 +74,38 @@ It's a simplistic class representing an other vehicle on the road derived from t
 
 _**Coordinate Converter**_
 
-Used by Path Planner to convert sensor fusion data of other vehicles to Frenet states, and to convert predicted path points from Frenet to Cartesian coordinates. Coordinate Convertor interpolates s-x and s-d splines over adjecent map points points, which are spanning as far as 300 meters away from the car. The distance is chosen to exceed the sensor fusion range, which is typically observed up to 250 meters away.
+Used by Path Planner to convert sensor fusion data of other vehicles to Frenet states, and to convert predicted path points from Frenet to Cartesian coordinates. Coordinate Convertor interpolates s-x and s-d splines over adjecent map points points, which are spanning as far as 300 meters away from the car. The distance is chosen to exceed the sensor fusion range, which is typically observed up to 250 meters away. [tk::spline](http://kluge.in-chemnitz.de/opensource/spline/) interpolation library is used in this solution. 
+
+_**Trajectory Generator**_
+
+Provides two `Generate` methods to generate a free-running trajectory of a vehicle, as well as a trajectory of a vehicle following other vehicle. Trajectory Generator implements function `GetJmt` to compute a Jerk Minimizing Trajectory (JMT) by solving the system of equations for position, velocity, and acceleration:
+
+<img src="pic/jmt_equations.png" alt="JMT Equations" width="300"/>
+
+These equations are solved in matrix form using solver `Eigen::ColPivHouseholderQR`:
+
+<img src="pic/jmt_solution.png" alt="JMT Matrix Solution" width="350"/>
+
+Trajectory Generator uses normal distributions of s- and d-coordinate, speed, and acceleration to generate a number of perturbed goals, then using Trajectory Estimator to find a minimum cost trajectory.
+
+_**Trajectory Estimator**_
+
+Provides a single public method `GetCost` to compute the integral cost of a given trajectory. The class implements a number of trajectory cost functions of a diffrent weight:
+
+| Name          | Range | Weight | Description |
+|:-------------:|:-----:|:----:|:-----------|
+| TimeDiff      | 0..1  | 10   | Penalizes trajectories that span a duration which is longer or shorter than the duration requested |
+| Sdiff         | 0..1  | 1    | Penalizes trajectories whose s-coordinate (and derivatives) differ from the goal | 
+| Ddiff         | 0..1  | 10   | Penalizes trajectories whose d-coordinate (and derivatives) differ from the goal |
+| Collision     | 0,1   | 1000 | Penalizes collisions |
+| Buffer        | 0..1  | 100  | Penalizes getting close to other vehicles |
+| OffRoad       | 0,1   | 1000 | Penalizes getting off-road |
+| Speeding      | 0,1   | 1000 | Penalizes exceeding the speed limit |
+| Efficiency    | -1..1 | 700  | Rewards high average speeds |
+| MaxTotalAccel | 0,1   | 500  | Penalizes maximum sum of instant s- and d-acceleration |
+| TotalAccel    | 0..1  | 500  | Penalizes sum of s- and d-acceleration over time |
+| MaxJerk       | 0,1   | 500  | Penalizes maximum instant s-jerk |
+| TotalJerk     | 0..1  | 500  | Penalizes s-jerk over time |
 
 ---
 ## Dependencies
