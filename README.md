@@ -46,7 +46,8 @@ The car is able to smoothly change lanes when it makes sense to do so, such as w
 
 The class diagram of the solution: <p align="center"><img src="pic/class_diagram.png" alt="Class Diagram"/></p>
 
-##### _Path Planner_
+_**Path Planner**_
+
 Implements the core functionality of Path Planner. It embeds Coordinate Converter and Trajectory Generator, and also aggregates Planner State. The only public method provided by this class is Update, which receives simulator data from the WebSoket server:
 * Current s,d-coordinates, lane width, number of lanes on the road, and speed limit.
 * Previous path x,y.
