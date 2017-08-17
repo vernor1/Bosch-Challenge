@@ -1,5 +1,6 @@
 #include "planner_state.h"
 #include <cassert>
+#include <cmath>
 #include <iostream>
 
 namespace {
