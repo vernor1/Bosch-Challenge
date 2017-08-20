@@ -1,4 +1,5 @@
 #include "coordinate_converter.h"
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
@@ -18,9 +19,7 @@ auto kSensingRange = 300.;
 CoordinateConverter::CoordinateConverter(const std::vector<double>& waypoints_x,
                                          const std::vector<double>& waypoints_y,
                                          const std::vector<double>& waypoints_s,
-                                         double track_length)
-  : track_length_(track_length),
-    half_track_length_(track_length / 2.) {
+                                         double /*track_length*/) {
   assert(waypoints_x.size() == waypoints_s.size());
   assert(waypoints_y.size() == waypoints_s.size());
   for (std::size_t i = 0; i < waypoints_s.size(); ++i) {
@@ -58,29 +57,12 @@ VehicleMap CoordinateConverter::GetVehicles(
   for (const auto& sf : sensor_fusion) {
     // NOTE: The simulator app returns negative d-coords in the beginning of
     //       simulation.
-    if (sf.d > 0) {
-      auto vehicle_s = sf.s;
-      if (std::fabs(current_s - vehicle_s) > half_track_length_) {
-        // The simulator app returns other car's s-coord relative to each track
-        // start, while current_s is is relative to the start of first track.
-        auto current_s_remainder = std::fmod(current_s, track_length_);
-        auto current_s_quotient = std::floor(current_s / track_length_);
-        auto vehicle_s_remainder = std::fmod(vehicle_s, track_length_);
-        if (std::fabs(current_s_remainder - vehicle_s_remainder)
-            < half_track_length_) {
-          vehicle_s += track_length_ * current_s_quotient;
-        } else if (current_s_remainder > vehicle_s_remainder) {
-          vehicle_s += track_length_ * (current_s_quotient + 1);
-        } else {
-          vehicle_s += track_length_ * (current_s_quotient - 1);
-        }
-      }
-
+    if (sf.d > 0 && sf.s > 0) {
       auto cartesian_yaw = std::atan2(sf.vy, sf.vx);
-      auto x0 = spline_x_(vehicle_s);
-      auto y0 = spline_y_(vehicle_s);
-      auto x1 = spline_x_(vehicle_s + 1);
-      auto y1 = spline_y_(vehicle_s + 1);
+      auto x0 = spline_x_(sf.s);
+      auto y0 = spline_y_(sf.s);
+      auto x1 = spline_x_(sf.s + 1);
+      auto y1 = spline_y_(sf.s + 1);
       auto lane_orientation = std::atan2(y1 - y0, x1 - x0);
       auto frenet_yaw = cartesian_yaw - lane_orientation;
       auto cartesian_v = std::sqrt(sf.vx * sf.vx + sf.vy * sf.vy);
@@ -96,7 +78,7 @@ VehicleMap CoordinateConverter::GetVehicles(
       // car'ss,d-coords out from the fitted splines.
       vehicles.insert(std::make_pair(
         sf.id,
-        Vehicle({vehicle_s - current_s, vs, 0}, {sf.d, vd, 0})));
+        Vehicle({sf.s - current_s, vs, 0}, {sf.d, vd, 0})));
     }
   }
   return vehicles;
@@ -105,34 +87,16 @@ VehicleMap CoordinateConverter::GetVehicles(
 // Private Methods
 // -----------------------------------------------------------------------------
 void CoordinateConverter::UpdateSplines(double current_s) {
-  auto range_begin = current_s - kSensingRange;
-  auto range_begin_quotient = std::floor(range_begin / track_length_);
-  auto range_begin_remainder = std::fmod(range_begin, track_length_);
+  auto range_begin = std::max(current_s - kSensingRange, 0.);
+  auto range_end = std::min(current_s + kSensingRange, waypoints_map_.rbegin()->first);
 
-  auto range_end = current_s + kSensingRange;
-  auto range_end_quotient = std::floor(range_end / track_length_);
-  auto range_end_remainder = std::fmod(range_end, track_length_);
-
-  if (range_begin_remainder < 0) {
-    range_begin_remainder += track_length_;
-  }
   std::vector<std::size_t> waypoints_id;
   std::vector<double> waypoints_s;
   std::vector<double> waypoints_x;
   std::vector<double> waypoints_y;
-  auto iter = waypoints_map_.upper_bound(range_begin_remainder);
-  if (range_begin_quotient != range_end_quotient) {
-    while (iter != waypoints_map_.end()) {
-      waypoints_s.push_back(iter->first + track_length_ * range_begin_quotient);
-      waypoints_id.push_back(iter->second.id);
-      waypoints_x.push_back(iter->second.x);
-      waypoints_y.push_back(iter->second.y);
-      ++iter;
-    }
-    iter = waypoints_map_.begin();
-  }
-  while (iter != waypoints_map_.end() && iter->first < range_end_remainder) {
-    waypoints_s.push_back(iter->first + track_length_ * range_end_quotient);
+  auto iter = waypoints_map_.lower_bound(range_begin);
+  while (iter != waypoints_map_.end() && iter->first < range_end) {
+    waypoints_s.push_back(iter->first);
     waypoints_id.push_back(iter->second.id);
     waypoints_x.push_back(iter->second.x);
     waypoints_y.push_back(iter->second.y);
@@ -143,6 +107,10 @@ void CoordinateConverter::UpdateSplines(double current_s) {
     current_waypoints_id_ = waypoints_id;
     spline_x_.set_points(waypoints_s, waypoints_x);
     spline_y_.set_points(waypoints_s, waypoints_y);
-    std::cout << "Updated splines" << std::endl;
+    std::cout << "Updated splines:";
+    for (auto s : waypoints_s) {
+      std::cout << " " << s;
+    }
+    std::cout << std::endl;
   }
 }

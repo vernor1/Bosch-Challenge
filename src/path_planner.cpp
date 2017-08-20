@@ -14,7 +14,7 @@ enum {kNumberOfPathPoints = 50};
 auto kSampleDuration = 0.02;
 
 // Preferred speed offset below the speed limit [m/s]
-const auto kPreferredBufferSpeed = 5. * helpers::kMphToMps;
+const auto kPreferredBufferSpeed = 3. * helpers::kMphToMps;
 
 // Preferred buffer time when following other vehicles [s].
 auto kPreferredBufferTime = 3.;
@@ -85,6 +85,11 @@ void PathPlanner::Update(double current_s,
 
     auto nearest_s = GetNearestS(current_s);
     auto nearest_d = GetNearestD(current_d);
+    std::cout << "Nearest s (" << nearest_s[0] << "," << nearest_s[1] << ","
+              << nearest_s[2] << ")"
+              << ", d (" << nearest_d[0] << "," << nearest_d[1] << ","
+              << nearest_d[2] << ")"
+              << std::endl;
     auto other_vehicles = coordinate_converter_.GetVehicles(nearest_s[0],
                                                             sensor_fusion);
 
@@ -127,6 +132,15 @@ void PathPlanner::Update(double current_s,
     auto trajectory = GenerateTrajectory(current_d, lane_width, n_lanes,
                                          speed_limit, preferred_speed,
                                          other_vehicles);
+    std::cout << "Trajectory s_coeffs ("
+              << trajectory.s_coeffs[0] << "," << trajectory.s_coeffs[1]
+              << "," << trajectory.s_coeffs[2] << "," << trajectory.s_coeffs[3]
+              << "," << trajectory.s_coeffs[4] << "," << trajectory.s_coeffs[5]
+              << "), d_coeffs ("
+              << trajectory.d_coeffs[0] << "," << trajectory.d_coeffs[1]
+              << "," << trajectory.d_coeffs[2] << "," << trajectory.d_coeffs[3]
+              << "," << trajectory.d_coeffs[4] << "," << trajectory.d_coeffs[5]
+              << ")" << std::endl;
 
     // Reuse next points.
     std::size_t n_reused_points = previous_states_s_.size();
@@ -137,10 +151,15 @@ void PathPlanner::Update(double current_s,
 
     // Add missing next points.
     AddNextPoints(trajectory, nearest_s, next_x, next_y);
+/*
     auto farthest_planned_s = previous_states_s_.back();
+    auto farthest_planned_d = previous_states_d_.back();
     std::cout << "Farthest planned s (" << farthest_planned_s[0] << ","
               << farthest_planned_s[1] << "," << farthest_planned_s[2] << ")"
+              << ", d (" << farthest_planned_d[0] << ","
+              << farthest_planned_d[1] << "," << farthest_planned_d[2] << ")"
               << std::endl;
+*/
   }
 
   if (!next_x.empty()) {
@@ -278,7 +297,7 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
             << target_s[0] << "," << target_s[1] << "," << target_s[2]
             << ", target_d ("
             << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")"
-            << "), planning_time " << planning_time << std::endl;
+            << ", planning_time " << planning_time << std::endl;
   return trajectory_generator_.Generate(
     begin_s, begin_d, target_s, target_d, planning_time, other_vehicles,
     static_cast<double>(n_lanes) * lane_width, speed_limit);
@@ -306,6 +325,10 @@ void PathPlanner::AddNextPoints(const Vehicle::Trajectory& trajectory,
     previous_states_s_.push_back({s, s_dot, s_double_dot});
     previous_states_d_.push_back({d, d_dot, d_double_dot});
     auto cartesian = coordinate_converter_.GetCartesian(nearest_s[0], {s, d});
+    std::cout << "New s (" << s << "," << s_dot << "," << s_double_dot << ")"
+              << ", d (" << d << "," << d_dot << "," << d_double_dot << ")"
+              << ", x " << cartesian.x << ", y " << cartesian.y
+              << std::endl;
     next_x.push_back(cartesian.x);
     next_y.push_back(cartesian.y);
   }

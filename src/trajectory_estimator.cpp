@@ -98,8 +98,10 @@ TrajectoryEstimator::TrajectoryEstimator()
     target_s_double_dot_(kNumberOfSamples),
     is_target_d_double_dot_computed_(),
     target_d_double_dot_(kNumberOfSamples),
-    is_target_jerk_computed_(),
-    target_jerk_(kNumberOfSamples),
+    is_target_s_jerk_computed_(),
+    target_s_jerk_(kNumberOfSamples),
+    is_target_d_jerk_computed_(),
+    target_d_jerk_(kNumberOfSamples),
     is_closest_distance_computed_() {
 }
 
@@ -122,7 +124,8 @@ double TrajectoryEstimator::GetCost(const Vehicle::Trajectory& trajectory,
   is_trajectory_d_computed_ = false;
   is_target_s_double_dot_computed_ = false;
   is_target_d_double_dot_computed_ = false;
-  is_target_jerk_computed_ = false;
+  is_target_s_jerk_computed_ = false;
+  is_target_d_jerk_computed_ = false;
   is_closest_distance_computed_ = false;
   auto cost = 0.;
   if (is_verbose) {
@@ -166,7 +169,8 @@ double TrajectoryEstimator::GetCost(const std::string& costFunctionName,
   is_trajectory_d_computed_ = false;
   is_target_s_double_dot_computed_ = false;
   is_target_d_double_dot_computed_ = false;
-  is_target_jerk_computed_ = false;
+  is_target_s_jerk_computed_ = false;
+  is_target_d_jerk_computed_ = false;
   is_closest_distance_computed_ = false;
   for (const auto& wcf : kWeightedCostFunctions) {
     if (wcf.name == costFunctionName) {
@@ -295,17 +299,33 @@ void TrajectoryEstimator::ComputeTargetDDoubleDot(
   }
 }
 
-void TrajectoryEstimator::ComputeTargetJerk(
+void TrajectoryEstimator::ComputeTargetSJerk(
   double time,
   const std::vector<double>& s_coeffs) {
-  if (!is_target_jerk_computed_) {
+  if (!is_target_s_jerk_computed_) {
     ComputeTargetT(time);
     ComputeSDoubleDotCoeffs(s_coeffs);
-    auto jerk_coeffs = helpers::GetDerivative(s_double_dot_coeffs_);
+    auto s_jerk_coeffs = helpers::GetDerivative(s_double_dot_coeffs_);
     for (auto i = 0; i < kNumberOfSamples; ++i) {
-      target_jerk_[i] = helpers::EvaluatePolynomial(jerk_coeffs, target_t_[i]);
+      target_s_jerk_[i] = helpers::EvaluatePolynomial(s_jerk_coeffs,
+                                                      target_t_[i]);
     }
-    is_target_jerk_computed_ = true;
+    is_target_s_jerk_computed_ = true;
+  }
+}
+
+void TrajectoryEstimator::ComputeTargetDJerk(
+  double time,
+  const std::vector<double>& d_coeffs) {
+  if (!is_target_d_jerk_computed_) {
+    ComputeTargetT(time);
+    ComputeDDoubleDotCoeffs(d_coeffs);
+    auto d_jerk_coeffs = helpers::GetDerivative(d_double_dot_coeffs_);
+    for (auto i = 0; i < kNumberOfSamples; ++i) {
+      target_d_jerk_[i] = helpers::EvaluatePolynomial(d_jerk_coeffs,
+                                                      target_t_[i]);
+    }
+    is_target_d_jerk_computed_ = true;
   }
 }
 
@@ -570,10 +590,13 @@ double TrajectoryEstimator::GetMaxJerkCost(
   const VehicleMap& /*vehicles*/,
   double /*d_limit*/,
   double /*s_dot_limit*/) {
-  ComputeTargetJerk(target_time, trajectory.s_coeffs);
+  ComputeTargetSJerk(target_time, trajectory.s_coeffs);
+  ComputeTargetDJerk(target_time, trajectory.d_coeffs);
+  assert(target_s_jerk_.size() == target_d_jerk_.size());
   auto max_jerk = 0.;
-  for (auto jerk : target_jerk_) {
-    auto abs_jerk = std::fabs(jerk);
+  for (std::size_t i = 0; i < target_s_jerk_.size(); ++i) {
+    auto abs_jerk = std::fabs(target_s_jerk_[i])
+                  + std::fabs(target_d_jerk_[i]);
     if (abs_jerk > max_jerk) {
       max_jerk = abs_jerk;
     }
@@ -589,10 +612,13 @@ double TrajectoryEstimator::GetTotalJerkCost(
   const VehicleMap& /*vehicles*/,
   double /*d_limit*/,
   double /*s_dot_limit*/) {
-  ComputeTargetJerk(target_time, trajectory.s_coeffs);
+  ComputeTargetSJerk(target_time, trajectory.s_coeffs);
+  ComputeTargetDJerk(target_time, trajectory.d_coeffs);
+  assert(target_s_jerk_.size() == target_d_jerk_.size());
   auto total_jerk = 0.;
-  for (auto jerk : target_jerk_) {
-    total_jerk += std::fabs(jerk * target_dt_);
+  for (std::size_t i = 0; i < target_s_jerk_.size(); ++i) {
+    total_jerk += std::fabs(target_s_jerk_[i] * target_dt_)
+                + std::fabs(target_d_jerk_[i] * target_dt_);
   }
   auto jerk_per_second = total_jerk / target_time;
   return GetLogistic(jerk_per_second / kExpectedJerkInOneSec);

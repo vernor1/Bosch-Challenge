@@ -101,8 +101,10 @@ private:
   std::vector<double> target_s_double_dot_;
   bool is_target_d_double_dot_computed_;
   std::vector<double> target_d_double_dot_;
-  bool is_target_jerk_computed_;
-  std::vector<double> target_jerk_;
+  bool is_target_s_jerk_computed_;
+  std::vector<double> target_s_jerk_;
+  bool is_target_d_jerk_computed_;
+  std::vector<double> target_d_jerk_;
   bool is_closest_distance_computed_;
   double closest_distance_;
 
@@ -117,7 +119,8 @@ private:
   void ComputeTrajectoryD(double time, const std::vector<double>& d_coeffs);
   void ComputeTargetSDoubleDot(double time, const std::vector<double>& s_coeffs);
   void ComputeTargetDDoubleDot(double time, const std::vector<double>& d_coeffs);
-  void ComputeTargetJerk(double time, const std::vector<double>& s_coeffs);
+  void ComputeTargetSJerk(double time, const std::vector<double>& s_coeffs);
+  void ComputeTargetDJerk(double time, const std::vector<double>& d_coeffs);
   double GetClosestDistanceToAnyVehicle(const Vehicle::Trajectory& trajectory,
                                         const VehicleMap& vehicles);
 

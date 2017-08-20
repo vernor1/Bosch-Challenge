@@ -68,7 +68,7 @@ std::shared_ptr<PathPlanner> CreatePathPlanner() {
   std::vector<double> map_waypoints_s;
 
   // Waypoint map to read from.
-  std::string map_file_ = "../data/highway_map.csv";
+  std::string map_file_ = "../data/highway_map_bosch1.csv";
 
   std::ifstream in_map_(map_file_.c_str(), std::ifstream::in);
   std::string line;
@@ -118,6 +118,15 @@ int main() {
           // Main car's localization Data.
           double s = j[1]["s"];
           double d = j[1]["d"];
+          double x = j[1]["x"];
+          double y = j[1]["y"];
+          double yaw = j[1]["yaw"];
+          double speed = j[1]["speed"];
+          std::cout << "s " << s << ", d " << d
+                    << ", x " << x << ", y " << y
+                    << ", yaw " << yaw
+                    << ", speed " << speed
+                    << std::endl;
 
           // Previous path data given to the Planner.
           auto previous_path_x = j[1]["previous_path_x"];

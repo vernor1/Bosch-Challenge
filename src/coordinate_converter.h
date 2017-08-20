@@ -64,8 +64,6 @@ private:
     double y;
   };
 
-  double track_length_;
-  double half_track_length_;
   std::map<double, CartesianWaypoint> waypoints_map_;
   std::vector<std::size_t> current_waypoints_id_;
   tk::spline spline_x_;
