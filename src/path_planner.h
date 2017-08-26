@@ -47,6 +47,8 @@ public:
   // @param[in] control_function  Simulator control function.
   void Update(double current_s,
               double current_d,
+              double current_x,
+              double current_y,
               const std::vector<double>& previous_path_x,
               const std::vector<double>& previous_path_y,
               const std::vector<DetectedVehicle>& sensor_fusion,
@@ -62,12 +64,15 @@ private:
   std::deque<Vehicle::State> previous_states_s_;
   std::deque<Vehicle::State> previous_states_d_;
   std::size_t n_remaining_planned_points_;
+  bool is_initial_offset_computed_;
+  double initial_offset_x_;
+  double initial_offset_y_;
 
   inline std::size_t GetMissingPoints() const;
   inline double GetPlanningTime() const;
   inline Vehicle::State GetNearestS(double current_s) const;
   inline Vehicle::State GetNearestD(double current_d) const;
-  inline double GetFarthestPlannedS(double nearest_s) const;
+  inline double GetFarthestPlannedS(double current_s) const;
   inline void DiscardPreviousStates();
   inline void GetTrajectoryBegin(double current_d,
                                  Vehicle::State& begin_s,
@@ -83,7 +88,9 @@ private:
 
   // Generates new next points and update previous states.
   void AddNextPoints(const Vehicle::Trajectory& trajectory,
-                     const Vehicle::State& nearest_s,
+                     double current_s,
+                     double current_x,
+                     double current_y,
                      std::vector<double>& next_x,
                      std::vector<double>& next_y);
 };

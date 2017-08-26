@@ -140,7 +140,7 @@ int main() {
             sensor_fusion.push_back({v[0], v[1], v[2], v[3], v[4], v[5], v[6]});
           }
 
-          path_planner->Update(s, d, previous_path_x, previous_path_y,
+          path_planner->Update(s, d, x, y, previous_path_x, previous_path_y,
                                sensor_fusion, kLaneWidth, kNumberOfLanes,
                                kSpeedLimit,
                                std::bind(ControlSimulator, ws, _1, _2));

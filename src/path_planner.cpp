@@ -38,12 +38,15 @@ PathPlanner::PathPlanner(const std::vector<double>& waypoints_x,
                          const std::vector<double>& waypoints_s,
                          double track_length)
   : coordinate_converter_(waypoints_x, waypoints_y, waypoints_s, track_length),
-    n_remaining_planned_points_() {
+    n_remaining_planned_points_(),
+    is_initial_offset_computed_() {
   // Empty.
 }
 
 void PathPlanner::Update(double current_s,
                          double current_d,
+                         double current_x,
+                         double current_y,
                          const std::vector<double>& previous_path_x,
                          const std::vector<double>& previous_path_y,
                          const std::vector<DetectedVehicle>& sensor_fusion,
@@ -150,7 +153,7 @@ void PathPlanner::Update(double current_s,
                   previous_path_y.begin() + n_reused_points);
 
     // Add missing next points.
-    AddNextPoints(trajectory, nearest_s, next_x, next_y);
+    AddNextPoints(trajectory, current_s, current_x, current_y, next_x, next_y);
 /*
     auto farthest_planned_s = previous_states_s_.back();
     auto farthest_planned_d = previous_states_d_.back();
@@ -192,8 +195,8 @@ Vehicle::State PathPlanner::GetNearestD(double current_d) const {
          : Vehicle::State{current_d, 0, 0};
 }
 
-double PathPlanner::GetFarthestPlannedS(double nearest_s) const {
-  return !previous_states_s_.empty() ? previous_states_s_.back()[0] : nearest_s;
+double PathPlanner::GetFarthestPlannedS(double current_s) const {
+  return !previous_states_s_.empty() ? previous_states_s_.back()[0] : current_s;
 }
 
 void PathPlanner::DiscardPreviousStates() {
@@ -304,32 +307,48 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
 }
 
 void PathPlanner::AddNextPoints(const Vehicle::Trajectory& trajectory,
-                                const Vehicle::State& nearest_s,
+                                double current_s,
+                                double current_x,
+                                double current_y,
                                 std::vector<double>& next_x,
                                 std::vector<double>& next_y) {
+  auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
+  auto s_double_dot_coeffs = helpers::GetDerivative(s_dot_coeffs);
+  auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
+  auto d_double_dot_coeffs = helpers::GetDerivative(d_dot_coeffs);
   auto n_missing_points = GetMissingPoints();
-  auto farthest_planned_s = GetFarthestPlannedS(nearest_s[0]);
+  auto farthest_planned_s = GetFarthestPlannedS(current_s);
+  if (!is_initial_offset_computed_) {
+    auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, 0)
+           + farthest_planned_s;
+    auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, 0);
+    auto cartesian = coordinate_converter_.GetCartesian(current_s, {s, d});
+    initial_offset_x_ = current_x - cartesian.x;
+    initial_offset_y_ = current_y - cartesian.y;
+    is_initial_offset_computed_ = true;
+    std::cout << "Current coords (" << current_x << "," << current_y
+              << "), spline (" << cartesian.x << "," << cartesian.y
+              << "), offset (" << initial_offset_x_ << ","
+              << initial_offset_y_ << ")" << std::endl;
+  }
   for (auto i = 1; i < n_missing_points + 1; ++i) {
     auto t = static_cast<double>(i) * kSampleDuration;
-    auto s_dot_coeffs = helpers::GetDerivative(trajectory.s_coeffs);
-    auto s_double_dot_coeffs = helpers::GetDerivative(s_dot_coeffs);
-    auto d_dot_coeffs = helpers::GetDerivative(trajectory.d_coeffs);
-    auto d_double_dot_coeffs = helpers::GetDerivative(d_dot_coeffs);
     auto s = helpers::EvaluatePolynomial(trajectory.s_coeffs, t)
            + farthest_planned_s;
-    auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, t);
-    auto s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, t);
     auto d = helpers::EvaluatePolynomial(trajectory.d_coeffs, t);
+    auto cartesian = coordinate_converter_.GetCartesian(current_s, {s, d});
+    auto s_dot = helpers::EvaluatePolynomial(s_dot_coeffs, t);
     auto d_dot = helpers::EvaluatePolynomial(d_dot_coeffs, t);
+    auto s_double_dot = helpers::EvaluatePolynomial(s_double_dot_coeffs, t);
     auto d_double_dot = helpers::EvaluatePolynomial(d_double_dot_coeffs, t);
     previous_states_s_.push_back({s, s_dot, s_double_dot});
     previous_states_d_.push_back({d, d_dot, d_double_dot});
-    auto cartesian = coordinate_converter_.GetCartesian(nearest_s[0], {s, d});
     std::cout << "New s (" << s << "," << s_dot << "," << s_double_dot << ")"
               << ", d (" << d << "," << d_dot << "," << d_double_dot << ")"
-              << ", x " << cartesian.x << ", y " << cartesian.y
+              << ", x " << cartesian.x + initial_offset_x_
+              << ", y " << cartesian.y + initial_offset_y_
               << std::endl;
-    next_x.push_back(cartesian.x);
-    next_y.push_back(cartesian.y);
+    next_x.push_back(cartesian.x + initial_offset_x_);
+    next_y.push_back(cartesian.y + initial_offset_y_);
   }
 }
