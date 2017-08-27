@@ -145,6 +145,16 @@ void PathPlanner::Update(double current_s,
               << "," << trajectory.d_coeffs[4] << "," << trajectory.d_coeffs[5]
               << ")" << std::endl;
 
+    if (n_remaining_planned_points_ != kNumberOfPathPoints) {
+      // If whis is not a planning cycle, update the target vehicle Id.
+      auto planning_time = GetPlanningTime();
+      auto next_s = helpers::EvaluatePolynomial(trajectory.s_coeffs,
+                                                planning_time);
+      planner_state_->UpdateTargetVehicleId(planning_time,
+                                            next_s,
+                                            other_vehicles);
+    }
+
     // Reuse next points.
     std::size_t n_reused_points = previous_states_s_.size();
     next_x.assign(previous_path_x.begin(),
@@ -154,15 +164,6 @@ void PathPlanner::Update(double current_s,
 
     // Add missing next points.
     AddNextPoints(trajectory, current_s, current_x, current_y, next_x, next_y);
-/*
-    auto farthest_planned_s = previous_states_s_.back();
-    auto farthest_planned_d = previous_states_d_.back();
-    std::cout << "Farthest planned s (" << farthest_planned_s[0] << ","
-              << farthest_planned_s[1] << "," << farthest_planned_s[2] << ")"
-              << ", d (" << farthest_planned_d[0] << ","
-              << farthest_planned_d[1] << "," << farthest_planned_d[2] << ")"
-              << std::endl;
-*/
   }
 
   if (!next_x.empty()) {
@@ -242,7 +243,7 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
   auto target_vehicle = other_vehicles.find(target_vehicle_id);
   Vehicle::State begin_s;
   Vehicle::State begin_d;
-  Vehicle::State target_s;
+  auto feasible_target_speed = 0.;
   std::cout << "Generating trajectory";
   if (target_vehicle_id >= 0 && target_vehicle != other_vehicles.end()) {
     // Target vehicle is known, follow it.
@@ -265,12 +266,10 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
               << target_vehicle_s0[1] << "," << target_vehicle_s0[2] << ")";
 
     auto ds = target_vehicle_s0[0];
-    std::cout << ", ds " << ds;
     auto target_speed = preferred_speed;
     if (ds < preferred_speed * kPreferredBufferTime) {
       auto target_vehicle_speed = target_vehicle_s0[1];
       std::cout << ", target_vehicle_speed " << target_vehicle_speed;
-      std::cout << ", ds " << ds << ", target_vehicle_speed " << target_vehicle_speed;
       auto speed = std::pow(
         ds / (kPreferredBufferTime * std::pow(target_vehicle_speed, 2./3.))
         - std::cbrt(target_vehicle_speed), 3) + target_vehicle_speed;
@@ -280,17 +279,19 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
       DiscardPreviousStates();
       planning_time = GetPlanningTime();
     }
-    target_s = {target_speed * planning_time, target_speed, 0};
     GetTrajectoryBegin(current_d, begin_s, begin_d);
+    // If slower that preferred speed, increase it at a rate of 1 m/s/s.
+    feasible_target_speed = std::min(target_speed, begin_s[1] + planning_time);
   } else {
     // Target vehicle is unknown, free run at comfortable speed.
     GetTrajectoryBegin(current_d, begin_s, begin_d);
     // If slower that preferred speed, increase it at a rate of 1 m/s/s.
-    auto feasible_target_speed = std::min(preferred_speed,
-                                          begin_s[1] + planning_time);
-    target_s = {feasible_target_speed * planning_time, feasible_target_speed, 0};
+    feasible_target_speed = std::min(preferred_speed,
+                                     begin_s[1] + planning_time);
   }
-
+  Vehicle::State target_s = {feasible_target_speed * planning_time,
+                             feasible_target_speed,
+                             0};
   Vehicle::State target_d = {d, 0, 0};
   std::cout << ", begin_s ("
             << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"

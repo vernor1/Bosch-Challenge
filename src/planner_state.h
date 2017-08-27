@@ -16,7 +16,7 @@ public:
   PlannerState(std::size_t target_lane);
 
   // Provides the next state, if the current state changes as a result of
-  // analyzing given indicators.
+  // analyzing given indicators. Additionally, updates the target vehicle Id.
   // @param[in] n_lanes          Number of lanes on the road.
   // @param[in] lane_width       Lane width.
   // @param[in] current_s        State vector of current s-coord.
@@ -42,9 +42,20 @@ public:
   virtual void GetTarget(int& target_vehicle_id,
                          std::size_t& target_lane);
 
+  // Updates the target vehicle Id.
+  // @param[in] next_t           Next time step.
+  // @param[in] next_s           Next s-coordinate.
+  // @param[in] other_vehicles   Other vehicles on the road.
+  virtual void UpdateTargetVehicleId(double next_t,
+                                     double next_s,
+                                     const VehicleMap& other_vehicles);
+
 protected:
+  double lane_width_;
+  std::size_t n_lanes_;
   std::size_t target_lane_;
   int target_vehicle_id_;
+  double preferred_buffer_;
 };
 
 // Keeping lane state.
