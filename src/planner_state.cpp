@@ -120,14 +120,12 @@ AdjacentVehicles GetAdjacentVehicles(
     Vehicle::State vehicle_d;
     v.second.GetState(next_t, vehicle_s, vehicle_d);
     auto lane = GetLaneNumber(vehicle_d[0], lane_width);
-/*
-    std::cout << "Vehicle Id " << v.first
-              << ", s " << vehicle_s[0] << ", s_dot " << vehicle_s[1]
-              << ", s_double_dot " << vehicle_s[2]
-              << ", d " << vehicle_d[0] << ", d_dot " << vehicle_d[1]
-              << ", d_double_dot " << vehicle_d[2]
-              << ", lane " << lane << std::endl;
-*/
+    //std::cout << "Vehicle Id " << v.first
+    //          << ", s " << vehicle_s[0] << ", s_dot " << vehicle_s[1]
+    //          << ", s_double_dot " << vehicle_s[2]
+    //          << ", d " << vehicle_d[0] << ", d_dot " << vehicle_d[1]
+    //          << ", d_double_dot " << vehicle_d[2]
+    //          << ", lane " << lane << std::endl;
     if (vehicle_s[0] > next_s) {
       // The other vehicle is ahead.
       if (lane == target_lane) {
@@ -225,13 +223,11 @@ AdjacentVehicles GetAdjacentVehicles(
                            vehicle_behind_right_s_dot})
     ));
   }
-/*
-  for (const auto& v : adjacent_vehicles) {
-    std::cout << "Adjacent vehicle type " << static_cast<int>(v.first)
-              << ", id " << v.second.id << ", s " << v.second.s
-              << ", s_dot " << v.second.s_dot << std::endl;
-  }
-*/
+  //for (const auto& v : adjacent_vehicles) {
+  //  std::cout << "Adjacent vehicle type " << static_cast<int>(v.first)
+  //            << ", id " << v.second.id << ", s " << v.second.s
+  //            << ", s_dot " << v.second.s_dot << std::endl;
+  //}
   return adjacent_vehicles;
 }
 
@@ -415,8 +411,8 @@ void PlannerState::UpdateTargetVehicleId(double next_t,
   target_vehicle_id_ = GetTargetVehicleId(vehicle_ahead_id,
                                           other_vehicles,
                                           preferred_buffer_);
-  std::cout << "Vehicle ahead Id " << vehicle_ahead_id
-            << ", Target vehicle Id " << target_vehicle_id_ << std::endl;
+  //std::cout << "Vehicle ahead Id " << vehicle_ahead_id
+  //          << ", Target vehicle Id " << target_vehicle_id_ << std::endl;
 }
 
 // PlannerStateKeepingLane

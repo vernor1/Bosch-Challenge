@@ -14,7 +14,7 @@ enum {kNumberOfPathPoints = 50};
 const auto kSampleDuration = 0.02;
 
 // Preferred speed offset below the speed limit [m/s].
-const auto kPreferredBufferSpeed = 2. * helpers::kMphToMps;
+const auto kPreferredBufferSpeed = 2.5 * helpers::kMphToMps;
 
 // Preferred buffer time when following other vehicles [s].
 const auto kPreferredBufferTime = 3.;
@@ -93,11 +93,11 @@ void PathPlanner::Update(double current_s,
 
     auto nearest_s = GetNearestS(current_s);
     auto nearest_d = GetNearestD(current_d);
-    std::cout << "Nearest s (" << nearest_s[0] << "," << nearest_s[1] << ","
-              << nearest_s[2] << ")"
-              << ", d (" << nearest_d[0] << "," << nearest_d[1] << ","
-              << nearest_d[2] << ")"
-              << std::endl;
+    //std::cout << "Nearest s (" << nearest_s[0] << "," << nearest_s[1] << ","
+    //          << nearest_s[2] << ")"
+    //          << ", d (" << nearest_d[0] << "," << nearest_d[1] << ","
+    //          << nearest_d[2] << ")"
+    //          << std::endl;
     auto other_vehicles = coordinate_converter_.GetVehicles(nearest_s[0],
                                                             sensor_fusion);
 
@@ -141,15 +141,15 @@ void PathPlanner::Update(double current_s,
     auto trajectory = GenerateTrajectory(current_d, lane_width, n_lanes,
                                          adjusted_speed_limit, preferred_speed,
                                          other_vehicles);
-    std::cout << "Trajectory s_coeffs ("
-              << trajectory.s_coeffs[0] << "," << trajectory.s_coeffs[1]
-              << "," << trajectory.s_coeffs[2] << "," << trajectory.s_coeffs[3]
-              << "," << trajectory.s_coeffs[4] << "," << trajectory.s_coeffs[5]
-              << "), d_coeffs ("
-              << trajectory.d_coeffs[0] << "," << trajectory.d_coeffs[1]
-              << "," << trajectory.d_coeffs[2] << "," << trajectory.d_coeffs[3]
-              << "," << trajectory.d_coeffs[4] << "," << trajectory.d_coeffs[5]
-              << ")" << std::endl;
+    //std::cout << "Trajectory s_coeffs ("
+    //          << trajectory.s_coeffs[0] << "," << trajectory.s_coeffs[1]
+    //          << "," << trajectory.s_coeffs[2] << "," << trajectory.s_coeffs[3]
+    //          << "," << trajectory.s_coeffs[4] << "," << trajectory.s_coeffs[5]
+    //          << "), d_coeffs ("
+    //          << trajectory.d_coeffs[0] << "," << trajectory.d_coeffs[1]
+    //          << "," << trajectory.d_coeffs[2] << "," << trajectory.d_coeffs[3]
+    //          << "," << trajectory.d_coeffs[4] << "," << trajectory.d_coeffs[5]
+    //          << ")" << std::endl;
 
     if (n_remaining_planned_points_ != kNumberOfPathPoints) {
       // If whis is not a planning cycle, update the target vehicle Id.
@@ -300,6 +300,7 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
   Vehicle::State target_s = {feasible_s_dot * planning_time, feasible_s_dot, 0};
   auto d = lane_width * (target_lane + 0.5);
 
+  // Adjust d to a feasible travel distance when in the free running mode.
   auto feasible_dd = kPreferredLatAccel * planning_time * planning_time / 2.;
   if (feasible_dd < std::fabs(d - begin_d[0])) {
     std::cout << ", adjusted d " << d;
@@ -359,11 +360,11 @@ void PathPlanner::AddNextPoints(const Vehicle::Trajectory& trajectory,
     auto d_double_dot = helpers::EvaluatePolynomial(d_double_dot_coeffs, t);
     previous_states_s_.push_back({s, s_dot, s_double_dot});
     previous_states_d_.push_back({d, d_dot, d_double_dot});
-    std::cout << "New s (" << s << "," << s_dot << "," << s_double_dot << ")"
-              << ", d (" << d << "," << d_dot << "," << d_double_dot << ")"
-              << ", x " << cartesian.x + initial_offset_x_
-              << ", y " << cartesian.y + initial_offset_y_
-              << std::endl;
+    //std::cout << "New s (" << s << "," << s_dot << "," << s_double_dot << ")"
+    //          << ", d (" << d << "," << d_dot << "," << d_double_dot << ")"
+    //          << ", x " << cartesian.x + initial_offset_x_
+    //          << ", y " << cartesian.y + initial_offset_y_
+    //          << std::endl;
     next_x.push_back(cartesian.x + initial_offset_x_);
     next_y.push_back(cartesian.y + initial_offset_y_);
   }

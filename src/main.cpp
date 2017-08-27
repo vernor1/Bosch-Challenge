@@ -116,15 +116,6 @@ int main() {
           double d = j[1]["d"];
           double x = j[1]["x"];
           double y = j[1]["y"];
-/*
-          double yaw = j[1]["yaw"];
-          double speed = j[1]["speed"];
-          std::cout << "s " << s << ", d " << d
-                    << ", x " << x << ", y " << y
-                    << ", yaw " << yaw
-                    << ", speed " << speed
-                    << std::endl;
-*/
           // Previous path data given to the Planner.
           auto previous_path_x = j[1]["previous_path_x"];
           auto previous_path_y = j[1]["previous_path_y"];
