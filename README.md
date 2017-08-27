@@ -40,7 +40,7 @@ The car does not exceed a total acceleration of 10 m/s^2 and a jerk of 10 m/s^3.
 
 **Car does not have collisions**
 
-The car must not come into contact with any of the other cars or objects on the road.
+The car doesn't come into contact with any of the other cars or objects on the road.
 
 ----------------------------------------------------------------------------------------------------------------------------------------
 
@@ -52,13 +52,13 @@ During lane changes, the car doesn't spend more than 3 seconds outside the lane 
 
 **The car completes its trip within 360 seconds**
 
-Any submissions that don't finish within 360 seconds will be considered invalid.
+A trip which doesn't finish within 360 seconds is considered invalid.
 
 ----------------------------------------------------------------------------------------------------------------------------------------
 
 **Submission file must meet naming standards**
 
-Your .zip file must include main.cpp and all the code required to successfully compile. In addition, you must use the following map name in your code: highway_map_bosch1.csv
+THe .zip file includes main.cpp and all the code required to successfully compile. In addition, the following map is used: data/highway_map_bosch1.csv
 
 
 
