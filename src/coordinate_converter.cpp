@@ -9,17 +9,17 @@ namespace {
 // -----------------------------------------------------------------------------
 
 // Observed sensing range [m]
-auto kSensingRange = 300.;
+const auto kSensingRange = 300.;
 
 } // namespace
 
 // Public Methods
 // -----------------------------------------------------------------------------
 
-CoordinateConverter::CoordinateConverter(const std::vector<double>& waypoints_x,
-                                         const std::vector<double>& waypoints_y,
-                                         const std::vector<double>& waypoints_s,
-                                         double /*track_length*/) {
+CoordinateConverter::CoordinateConverter(
+  const std::vector<double>& waypoints_x,
+  const std::vector<double>& waypoints_y,
+  const std::vector<double>& waypoints_s) {
   assert(waypoints_x.size() == waypoints_s.size());
   assert(waypoints_y.size() == waypoints_s.size());
   for (std::size_t i = 0; i < waypoints_s.size(); ++i) {
@@ -88,7 +88,8 @@ VehicleMap CoordinateConverter::GetVehicles(
 // -----------------------------------------------------------------------------
 void CoordinateConverter::UpdateSplines(double current_s) {
   auto range_begin = std::max(current_s - kSensingRange, 0.);
-  auto range_end = std::min(current_s + kSensingRange, waypoints_map_.rbegin()->first);
+  auto range_end = std::min(current_s + kSensingRange,
+                            waypoints_map_.rbegin()->first);
 
   std::vector<std::size_t> waypoints_id;
   std::vector<double> waypoints_s;

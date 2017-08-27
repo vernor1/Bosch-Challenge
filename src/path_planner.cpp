@@ -11,19 +11,25 @@ namespace {
 enum {kNumberOfPathPoints = 50};
 
 // Sample duration of the projected path.
-auto kSampleDuration = 0.02;
+const auto kSampleDuration = 0.02;
 
-// Preferred speed offset below the speed limit [m/s]
-const auto kPreferredBufferSpeed = 3. * helpers::kMphToMps;
+// Preferred speed offset below the speed limit [m/s].
+const auto kPreferredBufferSpeed = 2. * helpers::kMphToMps;
 
 // Preferred buffer time when following other vehicles [s].
-auto kPreferredBufferTime = 3.;
+const auto kPreferredBufferTime = 3.;
+
+// Preferred longitudinal acceleration [m/s/s].
+const auto kPreferredLongAccel = 1.;
+
+// Preferred lateral acceleration [m/s/s].
+const auto kPreferredLatAccel = 5.;
 
 // Trajectory planning time [s].
-auto kPlanningTime = 2.;
+const auto kPlanningTime = 2.;
 
 // Projected trajectory time [s].
-auto kTrajectoryTime = 1.;
+const auto kTrajectoryTime = 1.;
 
 // Number of waypoints to discard.
 enum {kNumberOfPointsToDiscard = 5};
@@ -35,9 +41,8 @@ enum {kNumberOfPointsToDiscard = 5};
 
 PathPlanner::PathPlanner(const std::vector<double>& waypoints_x,
                          const std::vector<double>& waypoints_y,
-                         const std::vector<double>& waypoints_s,
-                         double track_length)
-  : coordinate_converter_(waypoints_x, waypoints_y, waypoints_s, track_length),
+                         const std::vector<double>& waypoints_s)
+  : coordinate_converter_(waypoints_x, waypoints_y, waypoints_s),
     n_remaining_planned_points_(),
     is_initial_offset_computed_() {
   // Empty.
@@ -96,7 +101,8 @@ void PathPlanner::Update(double current_s,
     auto other_vehicles = coordinate_converter_.GetVehicles(nearest_s[0],
                                                             sensor_fusion);
 
-    const auto preferred_speed = speed_limit - kPreferredBufferSpeed;
+    const auto adjusted_speed_limit = speed_limit - kPreferredBufferSpeed;
+    const auto preferred_speed = adjusted_speed_limit - kPreferredBufferSpeed;
     if (n_remaining_planned_points_ == 0) {
       // Determine next planner state.
       std::cout << "Determine next planner state" << std::endl;
@@ -106,8 +112,8 @@ void PathPlanner::Update(double current_s,
       }
       // Dry-run the trajectory generator to determine next s and d.
       auto trajectory = GenerateTrajectory(current_d, lane_width, n_lanes,
-                                           speed_limit, preferred_speed,
-                                           other_vehicles);
+                                           adjusted_speed_limit,
+                                           preferred_speed, other_vehicles);
       auto planning_time = GetPlanningTime();
       auto next_s = helpers::EvaluatePolynomial(trajectory.s_coeffs,
                                                 planning_time);
@@ -133,7 +139,7 @@ void PathPlanner::Update(double current_s,
 
     // Run full trajecrory generation.
     auto trajectory = GenerateTrajectory(current_d, lane_width, n_lanes,
-                                         speed_limit, preferred_speed,
+                                         adjusted_speed_limit, preferred_speed,
                                          other_vehicles);
     std::cout << "Trajectory s_coeffs ("
               << trajectory.s_coeffs[0] << "," << trajectory.s_coeffs[1]
@@ -237,13 +243,12 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
   auto target_vehicle_id = -1;
   std::size_t target_lane = 100;
   planner_state_->GetTarget(target_vehicle_id, target_lane);
-  auto d = lane_width * (target_lane + 0.5);
 
   auto planning_time = GetPlanningTime();
   auto target_vehicle = other_vehicles.find(target_vehicle_id);
   Vehicle::State begin_s;
   Vehicle::State begin_d;
-  auto feasible_target_speed = 0.;
+  auto feasible_s_dot = 0.;
   std::cout << "Generating trajectory";
   if (target_vehicle_id >= 0 && target_vehicle != other_vehicles.end()) {
     // Target vehicle is known, follow it.
@@ -280,25 +285,35 @@ Vehicle::Trajectory PathPlanner::GenerateTrajectory(
       planning_time = GetPlanningTime();
     }
     GetTrajectoryBegin(current_d, begin_s, begin_d);
-    // If slower that preferred speed, increase it at a rate of 1 m/s/s.
-    feasible_target_speed = std::min(target_speed, begin_s[1] + planning_time);
+    // If slower that preferred speed, increase it with the preferred
+    // acceleration.
+    feasible_s_dot = std::min(target_speed,
+                              begin_s[1] + kPreferredLongAccel * planning_time);
   } else {
     // Target vehicle is unknown, free run at comfortable speed.
     GetTrajectoryBegin(current_d, begin_s, begin_d);
-    // If slower that preferred speed, increase it at a rate of 1 m/s/s.
-    feasible_target_speed = std::min(preferred_speed,
-                                     begin_s[1] + planning_time);
+    // If slower that preferred speed, increase it with the preferred
+    // acceleration.
+    feasible_s_dot = std::min(preferred_speed,
+                              begin_s[1] + kPreferredLongAccel * planning_time);
   }
-  Vehicle::State target_s = {feasible_target_speed * planning_time,
-                             feasible_target_speed,
-                             0};
+  Vehicle::State target_s = {feasible_s_dot * planning_time, feasible_s_dot, 0};
+  auto d = lane_width * (target_lane + 0.5);
+
+  auto feasible_dd = kPreferredLatAccel * planning_time * planning_time / 2.;
+  if (feasible_dd < std::fabs(d - begin_d[0])) {
+    std::cout << ", adjusted d " << d;
+    d = d > begin_d[0] ? begin_d[0] + feasible_dd : begin_d[0] - feasible_dd;
+    std::cout << " -> " << d;
+  }
+
   Vehicle::State target_d = {d, 0, 0};
   std::cout << ", begin_s ("
             << begin_s[0] << "," << begin_s[1] << "," << begin_s[2] << ")"
             << ", begin_d ("
             << begin_d[0] << "," << begin_d[1] << "," << begin_d[2] << ")"
             << ", target_s ("
-            << target_s[0] << "," << target_s[1] << "," << target_s[2]
+            << target_s[0] << "," << target_s[1] << "," << target_s[2] << ")"
             << ", target_d ("
             << target_d[0] << "," << target_d[1] << "," << target_d[2] << ")"
             << ", planning_time " << planning_time << std::endl;

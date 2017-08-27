@@ -35,13 +35,13 @@ enum class Lane {
 // -----------------------------------------------------------------------------
 
 // Preferred buffer time when changing lanes [s].
-auto kPreferredBufferTime = 2.;
+const auto kPreferredBufferTime = 2.;
 
 // Laterral acceleration (d_dot) when driving straight [m/s/s] 
-auto kStraightDDot = 0.3;
+const auto kStraightDDot = 0.3;
 
 // Additional cost of passing in a right lane.
-auto kRightLanePassingCost = 1e-3;
+const auto kRightLanePassingCost = 1e-3;
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -120,12 +120,14 @@ AdjacentVehicles GetAdjacentVehicles(
     Vehicle::State vehicle_d;
     v.second.GetState(next_t, vehicle_s, vehicle_d);
     auto lane = GetLaneNumber(vehicle_d[0], lane_width);
+/*
     std::cout << "Vehicle Id " << v.first
               << ", s " << vehicle_s[0] << ", s_dot " << vehicle_s[1]
               << ", s_double_dot " << vehicle_s[2]
               << ", d " << vehicle_d[0] << ", d_dot " << vehicle_d[1]
               << ", d_double_dot " << vehicle_d[2]
               << ", lane " << lane << std::endl;
+*/
     if (vehicle_s[0] > next_s) {
       // The other vehicle is ahead.
       if (lane == target_lane) {
@@ -223,13 +225,13 @@ AdjacentVehicles GetAdjacentVehicles(
                            vehicle_behind_right_s_dot})
     ));
   }
-
+/*
   for (const auto& v : adjacent_vehicles) {
     std::cout << "Adjacent vehicle type " << static_cast<int>(v.first)
               << ", id " << v.second.id << ", s " << v.second.s
               << ", s_dot " << v.second.s_dot << std::endl;
   }
-
+*/
   return adjacent_vehicles;
 }
 

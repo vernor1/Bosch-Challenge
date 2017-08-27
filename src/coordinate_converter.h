@@ -35,11 +35,9 @@ public:
   // @param waypoints_x   Sequence of map waypoints, x-coordinate.
   // @param waypoints_x   Sequence of map waypoints, y-coordinate.
   // @param waypoints_x   Sequence of map waypoints, s-coordinate.
-  // @param track_length  Track length [m].
   CoordinateConverter(const std::vector<double>& waypoints_x,
                       const std::vector<double>& waypoints_y,
-                      const std::vector<double>& waypoints_s,
-                      double track_length);
+                      const std::vector<double>& waypoints_s);
   CoordinateConverter(const CoordinateConverter&) = delete;
   CoordinateConverter& operator=(const CoordinateConverter&) = delete;
 

@@ -27,11 +27,9 @@ public:
   // @param waypoints_x   Sequence of map waypoints, x-coordinate.
   // @param waypoints_y   Sequence of map waypoints, y-coordinate.
   // @param waypoints_s   Sequence of map waypoints, s-coordinate.
-  // @param track_length  Track length [m].
   PathPlanner(const std::vector<double>& waypoints_x,
               const std::vector<double>& waypoints_y,
-              const std::vector<double>& waypoints_s,
-              double track_length);
+              const std::vector<double>& waypoints_s);
   PathPlanner(const PathPlanner&) = delete;
   PathPlanner& operator=(const PathPlanner&) = delete;
 

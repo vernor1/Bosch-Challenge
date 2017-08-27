@@ -17,17 +17,14 @@ namespace {
 // TCP port accepting incoming connections from simulator.
 enum { kTcpPort = 4567 };
 
-// The max s value before wrapping around the track back to 0.
-auto kTrackLength = 6945.554;
-
 // Lane wifth in [m].
-auto kLaneWidth = 4.;
+const auto kLaneWidth = 4.;
 
 // Number of lanes.
 enum {kNumberOfLanes = 3};
 
 // Speed limit in [m/s].
-auto kSpeedLimit = 50. * helpers::kMphToMps;
+const auto kSpeedLimit = 50. * helpers::kMphToMps;
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -87,8 +84,7 @@ std::shared_ptr<PathPlanner> CreatePathPlanner() {
 
   return std::shared_ptr<PathPlanner>(new PathPlanner(map_waypoints_x,
                                                       map_waypoints_y,
-                                                      map_waypoints_s,
-                                                      kTrackLength));
+                                                      map_waypoints_s));
 }
 
 } // namespace
@@ -120,6 +116,7 @@ int main() {
           double d = j[1]["d"];
           double x = j[1]["x"];
           double y = j[1]["y"];
+/*
           double yaw = j[1]["yaw"];
           double speed = j[1]["speed"];
           std::cout << "s " << s << ", d " << d
@@ -127,7 +124,7 @@ int main() {
                     << ", yaw " << yaw
                     << ", speed " << speed
                     << std::endl;
-
+*/
           // Previous path data given to the Planner.
           auto previous_path_x = j[1]["previous_path_x"];
           auto previous_path_y = j[1]["previous_path_y"];

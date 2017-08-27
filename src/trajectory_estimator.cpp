@@ -142,7 +142,7 @@ double TrajectoryEstimator::GetCost(const Vehicle::Trajectory& trajectory,
                                                   d_limit,
                                                   s_dot_limit);
     if (is_verbose) {
-      std::cout << "cost for " << wcf.name << " is \t " << partial_cost
+      std::cout << "cost for " << wcf.name << ":\t\t" << partial_cost
       << std::endl;
     }
     cost += partial_cost;

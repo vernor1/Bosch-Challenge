@@ -21,10 +21,10 @@ struct Goal {
 enum {kNumberOfSamples = 10};
 
 // Timestep of target times.
-auto kTargetTimestep = 0.5;
+const auto kTargetTimestep = 0.5;
 
 // Span of the target time.
-auto kTargetTimespan = 4. * kTargetTimestep;
+const auto kTargetTimespan = 4. * kTargetTimestep;
 
 // Local Helper-Functions
 // -----------------------------------------------------------------------------
@@ -210,11 +210,6 @@ Vehicle::Trajectory TrajectoryGenerator::Generate(
       best_trajectory = trajectory;
     }
   }
-
-  // Print out debug data.
-  //  auto target_s = GetTargetS(target_vehicle, best_trajectory.time, delta_s);
-  //  CalculateCost(best_trajectory, target_s, target_d, target_time, vehicles,
-  //                d_limit, s_dot_limit, true);
 
   return best_trajectory;
 }
